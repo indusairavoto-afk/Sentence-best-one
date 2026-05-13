@@ -1,0 +1,6 @@
+{
+  "name": "Remix: ChatGPT Chat Extractor",
+  "description": "Convert ChatGPT share links into PDF or Vault formats using local Extension bypass.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
