@@ -341,11 +341,15 @@ export default function App() {
               (window as any).chrome.runtime.sendMessage(extensionId, { action: 'fetch_html', url: shareLink }, (response: any) => {
                 if ((window as any).chrome.runtime.lastError) {
                   reject(new Error((window as any).chrome.runtime.lastError.message));
-                } else if (!response || !response.success || !response.html) {
-                  reject(new Error('Extension failed to extract document HTML from the page.'));
                 } else {
-                  console.log("Got HTML from extension, length:", response.html.length, "structured messages:", (response.structuredMessages || []).length);
-                  resolve(response);
+                  const hasStructured = Array.isArray(response.structuredMessages) && response.structuredMessages.length > 0;
+                  const hasHtml = response.html && response.html.length > 100;
+                  if (!response.success && !hasStructured && !hasHtml) {
+                    reject(new Error('Extension failed to extract document HTML from the page.'));
+                  } else {
+                    console.log("Got data from extension — structured msgs:", (response.structuredMessages || []).length, "html length:", response.html ? response.html.length : 0);
+                    resolve(response);
+                  }
                 }
               });
             });
