@@ -342,22 +342,24 @@ export default function App() {
                 if ((window as any).chrome.runtime.lastError) {
                   reject(new Error((window as any).chrome.runtime.lastError.message));
                 } else {
+                  const hasHtmlMsgs = Array.isArray(response.htmlMessages) && response.htmlMessages.length > 0;
                   const hasStructured = Array.isArray(response.structuredMessages) && response.structuredMessages.length > 0;
                   const hasHtml = response.html && response.html.length > 100;
-                  if (!response.success && !hasStructured && !hasHtml) {
+                  if (!response.success && !hasHtmlMsgs && !hasStructured && !hasHtml) {
                     reject(new Error('Extension failed to extract document HTML from the page.'));
                   } else {
-                    console.log("Got data from extension — structured msgs:", (response.structuredMessages || []).length, "html length:", response.html ? response.html.length : 0);
+                    console.log("Got data from extension — htmlMessages:", (response.htmlMessages || []).length, "html length:", response.html ? response.html.length : 0);
                     resolve(response);
                   }
                 }
               });
             });
-            // Send HTML + pre-extracted structured messages (if any) to server
+            // Send htmlMessages (with rich HTML content) + fallback html to server
             payload = {
               html: extResponse.html,
+              htmlMessages: extResponse.htmlMessages || [],
               structuredMessages: extResponse.structuredMessages || [],
-              structuredTitle: extResponse.title || '',
+              structuredTitle: extResponse.title || extResponse.structuredTitle || '',
             };
             endpoint = '/api/extract-html';
           } else {

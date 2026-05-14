@@ -407,9 +407,66 @@ app.post("/api/extract", async (req, res) => {
 
 app.post("/api/extract-html", async (req, res) => {
   try {
-    const { html, structuredMessages, structuredTitle } = req.body;
+    const { html, htmlMessages, structuredMessages, structuredTitle } = req.body;
 
-    // If the extension already extracted structured messages from the DOM, use them directly
+    // ── Priority 1: htmlMessages from extension DOM scrape (rich HTML → Markdown) ──
+    if (htmlMessages && Array.isArray(htmlMessages) && htmlMessages.length > 0) {
+      let validMessages: { role: string; content: string }[] = [];
+
+      for (const m of htmlMessages) {
+        if (!m || typeof m.role !== 'string') continue;
+        if (m.role !== 'user' && m.role !== 'assistant') continue;
+
+        let content = '';
+        if (m.htmlContent && typeof m.htmlContent === 'string' && m.htmlContent.trim()) {
+          // Convert HTML → proper Markdown (preserves headers, lists, bold, tables)
+          const $ = require('cheerio').load(m.htmlContent);
+          // Remove noise: copy buttons, aria-hidden elements, citation badges
+          $('button, [aria-label], [aria-hidden="true"], .sr-only, svg, noscript, style, script').remove();
+          $('[class*="citation"], [class*="source-chip"], [class*="footnote"], [class*="action"]').remove();
+          try {
+            content = turndownService.turndown($.html() || '');
+          } catch {
+            content = $.text().trim();
+          }
+        } else if (typeof m.content === 'string') {
+          content = m.content.trim();
+        }
+
+        content = content.trim();
+        if (content) validMessages.push({ role: m.role, content });
+      }
+
+      if (validMessages.length > 0) {
+        // Drop leading assistant messages
+        while (validMessages.length > 0 && validMessages[0].role !== 'user') {
+          validMessages.shift();
+        }
+        // Collapse consecutive same-role messages
+        const deduped: { role: string; content: string }[] = [];
+        for (const msg of validMessages) {
+          if (deduped.length === 0 || deduped[deduped.length - 1].role !== msg.role) {
+            deduped.push(msg);
+          }
+        }
+        // Drop identical adjacent content
+        const final = deduped.filter((msg, idx) =>
+          idx === 0 || msg.content !== deduped[idx - 1].content
+        );
+
+        if (final.length > 0) {
+          console.log("Using htmlMessages from extension, count:", final.length);
+          return res.json({
+            title: structuredTitle || "Extracted Chat",
+            messages: final,
+            sessionId: `session_${Date.now()}`,
+            extractedAt: new Date().toISOString(),
+          });
+        }
+      }
+    }
+
+    // ── Priority 2: plain structuredMessages (text only, no HTML) ──
     if (structuredMessages && Array.isArray(structuredMessages) && structuredMessages.length > 0) {
       let validMessages: { role: string; content: string }[] = structuredMessages
         .filter((m: any) => m && typeof m.role === 'string' &&
@@ -418,27 +475,20 @@ app.post("/api/extract-html", async (req, res) => {
         .map((m: any) => ({ role: m.role as string, content: m.content.trim() as string }));
 
       if (validMessages.length > 0) {
-        // Drop any leading assistant messages — conversation must start with user
         while (validMessages.length > 0 && validMessages[0].role !== 'user') {
           validMessages.shift();
         }
-
-        // Deduplicate consecutive same-role messages (keep first)
         const deduped: { role: string; content: string }[] = [];
         for (const msg of validMessages) {
           if (deduped.length === 0 || deduped[deduped.length - 1].role !== msg.role) {
             deduped.push(msg);
           }
         }
-
-        // Deduplicate identical adjacent content
-        const final = deduped.filter((msg, idx) => {
-          if (idx === 0) return true;
-          return msg.content !== deduped[idx - 1].content;
-        });
-
+        const final = deduped.filter((msg, idx) =>
+          idx === 0 || msg.content !== deduped[idx - 1].content
+        );
         if (final.length > 0) {
-          console.log("Using pre-extracted structured messages from extension, count:", final.length);
+          console.log("Using plain structuredMessages from extension, count:", final.length);
           return res.json({
             title: structuredTitle || "Extracted Chat",
             messages: final,
