@@ -407,7 +407,25 @@ app.post("/api/extract", async (req, res) => {
 
 app.post("/api/extract-html", async (req, res) => {
   try {
-    const { html } = req.body;
+    const { html, structuredMessages, structuredTitle } = req.body;
+
+    // If the extension already extracted structured messages from the DOM, use them directly
+    if (structuredMessages && Array.isArray(structuredMessages) && structuredMessages.length > 0) {
+      const validMessages = structuredMessages
+        .filter((m: any) => m && typeof m.role === 'string' && typeof m.content === 'string' && m.content.trim())
+        .map((m: any) => ({ role: m.role, content: m.content.trim() }));
+
+      if (validMessages.length > 0) {
+        console.log("Using pre-extracted structured messages from extension, count:", validMessages.length);
+        return res.json({
+          title: structuredTitle || "Extracted Chat",
+          messages: validMessages,
+          sessionId: `session_${Date.now()}`,
+          extractedAt: new Date().toISOString(),
+        });
+      }
+    }
+
     if (!html || html.length < 100) {
       return res.status(400).json({
         error: "INVALID_INPUT",
@@ -1254,6 +1272,10 @@ function extractMessagesFromHtml(html: string) {
       // Ignore "cookie preferences" or footer boilerplate
       const cleanedContent = content
         .replace(/By messaging ChatGPT[\s\S]*Cookie Preferences\./i, "")
+        .replace(/This is a copy of a shared ChatGPT conversation[\s\S]*?Cookie Preferences\./i, "")
+        .replace(/window\.__oai_log[\s\S]*?Date\.now\(\)\}\)\)/g, "")
+        .replace(/Report conversation window\.[\s\S]{0,500}Date\.now\(\)/g, "")
+        .replace(/ChatGPT can make mistakes\.[\s\S]{0,200}$/i, "")
         .trim();
 
       if (cleanedContent.length > 20) {

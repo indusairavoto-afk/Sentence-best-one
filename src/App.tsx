@@ -337,20 +337,24 @@ export default function App() {
         try {
           if (extensionId && typeof window !== 'undefined' && (window as any).chrome && (window as any).chrome.runtime) {
             setUploadProgress({ phase: 'Extracting via Extension...', percent: 20 });
-            const extResponse = await new Promise<string>((resolve, reject) => {
+            const extResponse = await new Promise<any>((resolve, reject) => {
               (window as any).chrome.runtime.sendMessage(extensionId, { action: 'fetch_html', url: shareLink }, (response: any) => {
                 if ((window as any).chrome.runtime.lastError) {
                   reject(new Error((window as any).chrome.runtime.lastError.message));
                 } else if (!response || !response.success || !response.html) {
                   reject(new Error('Extension failed to extract document HTML from the page.'));
                 } else {
-                  console.log("Got HTML from extension, length:", response.html.length);
-                  resolve(response.html);
+                  console.log("Got HTML from extension, length:", response.html.length, "structured messages:", (response.structuredMessages || []).length);
+                  resolve(response);
                 }
               });
             });
-            // Pretend it was a file upload and send HTML to standard extraction endpoint
-            payload = { html: extResponse };
+            // Send HTML + pre-extracted structured messages (if any) to server
+            payload = {
+              html: extResponse.html,
+              structuredMessages: extResponse.structuredMessages || [],
+              structuredTitle: extResponse.title || '',
+            };
             endpoint = '/api/extract-html';
           } else {
             const response = await fetch('/api/extract', {

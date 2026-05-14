@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "ChatGPT HTML Extractor",
-  "version": "1.0",
+  "version": "1.1",
   "description": "Background extractor for ChatGPT share links",
   "permissions": [
     "tabs",
@@ -19,8 +19,12 @@
       "matches": [
         "https://*.run.app/*",
         "https://*.onrender.com/*",
+        "https://*.replit.app/*",
+        "https://*.replit.dev/*",
         "http://localhost:3000/*",
-        "http://127.0.0.1:3000/*"
+        "http://localhost:5000/*",
+        "http://127.0.0.1:3000/*",
+        "http://127.0.0.1:5000/*"
       ],
       "js": ["content-inject.js"],
       "run_at": "document_start",
@@ -31,8 +35,12 @@
     "matches": [
       "https://*.run.app/*",
       "https://*.onrender.com/*",
+      "https://*.replit.app/*",
+      "https://*.replit.dev/*",
       "http://localhost:3000/*",
-      "http://127.0.0.1:3000/*"
+      "http://localhost:5000/*",
+      "http://127.0.0.1:3000/*",
+      "http://127.0.0.1:5000/*"
     ]
   },
   "background": {
