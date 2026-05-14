@@ -1,7 +1,5 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { Activity, Globe2, Users, Heart } from 'lucide-react';
-import { db } from '../firebase';
-import { doc, onSnapshot } from 'firebase/firestore';
 import RotatingEarth from './RotatingEarth';
 import { STAT_BASES, MANUAL_DONATIONS } from '../App';
 
@@ -22,20 +20,6 @@ export function LiveGlobeSection() {
     handleResize();
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
-  useEffect(() => {
-    const unsub = onSnapshot(doc(db, 'stats', 'global'), (docSn) => {
-      if (docSn.exists()) {
-        const data = docSn.data();
-        setStats({
-          visitors: (data.visitors || 0) + STAT_BASES.visitors,
-          uses: (data.uses || 0) + STAT_BASES.uses,
-          donationCount: MANUAL_DONATIONS
-        });
-      }
-    });
-    return () => unsub();
   }, []);
 
   return (

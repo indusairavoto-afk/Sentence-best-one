@@ -191,7 +191,11 @@ app.get("/api/health", (req, res) => {
 });
 
 app.get("/chatgpt-extractor.zip", (req, res) => {
-  const zipPath = path.join(process.cwd(), "dist", "chatgpt-extractor.zip");
+  let zipPath = path.join(process.cwd(), "dist", "chatgpt-extractor.zip");
+  if (!fs.existsSync(zipPath)) {
+    zipPath = path.join(process.cwd(), "public", "chatgpt-extractor.zip");
+  }
+  
   if (fs.existsSync(zipPath)) {
     res.setHeader("Content-Type", "application/zip");
     res.setHeader("Content-Disposition", "attachment; filename=chatgpt-extractor.zip");

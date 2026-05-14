@@ -17,10 +17,6 @@ import { AILogoMarquee } from './components/AILogoMarquee';
 import { PdfEditor } from './components/PdfEditor';
 import { vaultDbTools } from './lib/vaultDb';
 
-import { db, incrementGlobalStat, auth, signInWithGoogle, logOut } from './firebase';
-import { doc, onSnapshot } from 'firebase/firestore';
-import { onAuthStateChanged, User } from 'firebase/auth';
-
 import { Toaster, toast } from 'sonner';
 
 // MANUAL STATS CONTROL
@@ -170,36 +166,14 @@ const ChatImage = ({ url, isAbsolute }: { url: string, isAbsolute: boolean }) =>
 
 export default function App() {
   const [stats, setStats] = useState({ visitors: STAT_BASES.visitors, uses: STAT_BASES.uses, donationCount: MANUAL_DONATIONS });
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<any>(null); // Stub user
 
   useEffect(() => {
-    // Listen to Auth State
-    const unsubAuth = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
-    });
-
     // Listen to global stats
-    const unsub = onSnapshot(doc(db, 'stats', 'global'), (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        setStats({
-          visitors: (data.visitors || 0) + STAT_BASES.visitors,
-          uses: (data.uses || 0) + STAT_BASES.uses,
-          donationCount: MANUAL_DONATIONS
-        });
-      }
-    });
-    
-    // Track unique visitor
+    // track unique visitor
     if (!localStorage.getItem('hasVisited')) {
       localStorage.setItem('hasVisited', 'true');
-      incrementGlobalStat('visitors');
     }
-
-    return () => {
-      unsub();
-      unsubAuth();
-    };
   }, []);
 
   const [theme, setTheme] = useState<'dark' | 'light'>(() => {
@@ -396,7 +370,6 @@ export default function App() {
               if (action === 'pdf') {
                 setShowPdfEditor(true);
               }
-              incrementGlobalStat('uses');
               setUploadProgress(null);
               setLoading(false);
               setShowDonationModal(true);
@@ -485,7 +458,6 @@ export default function App() {
           if (action === 'pdf') {
             setShowPdfEditor(true);
           }
-          incrementGlobalStat('uses');
           setUploadProgress(null);
           setLoading(false);
           setShowDonationModal(true);
@@ -602,7 +574,7 @@ export default function App() {
             {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
           </button>
           {user && (
-            <button onClick={logOut} title="Sign Out" className="w-10 h-10 rounded-full border border-zinc-200 dark:border-white/10 text-zinc-500 hover:text-red-500 dark:hover:text-red-400 hover:bg-zinc-100 dark:hover:bg-white/5 transition-all flex items-center justify-center shrink-0 ml-1">
+            <button title="Sign Out" className="w-10 h-10 rounded-full border border-zinc-200 dark:border-white/10 text-zinc-500 hover:text-red-500 dark:hover:text-red-400 hover:bg-zinc-100 dark:hover:bg-white/5 transition-all flex items-center justify-center shrink-0 ml-1">
               <LogOut size={14} />
             </button>
           )}

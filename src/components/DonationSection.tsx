@@ -4,7 +4,6 @@ import {
   Heart, Lock, Users, Code, Globe, Mail, 
   ChevronDown, Check, Github, Twitter, HeartHandshake, Sparkles 
 } from 'lucide-react';
-import { incrementGlobalStat } from '../firebase';
 import { LiveGlobeSection } from './LiveGlobeSection';
 
 const baseInrAmounts = [
@@ -302,7 +301,7 @@ export function DonationSection() {
           </div>
 
           <button 
-            onClick={() => incrementGlobalStat('donationCount')}
+            onClick={() => { /* simulate donation count via local storage if needed */ }}
             className="w-full bg-black dark:bg-white text-white dark:text-black py-4 rounded-xl font-bold text-lg flex items-center justify-center gap-2 hover:opacity-90 transition-opacity mb-5 shadow-lg shadow-black/10 dark:shadow-white/10 transform active:scale-[0.99]"
           >
             <Heart size={20} />
