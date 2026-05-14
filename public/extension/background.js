@@ -3,258 +3,224 @@ chrome.runtime.onMessageExternal.addListener(
     if (request.action === 'fetch_html' && request.url) {
       console.log('Received request to fetch:', request.url);
 
-      chrome.tabs.create({ url: request.url, active: true }, (tab) => {
+      // Open in background (hidden) - do NOT make active so user isn't interrupted
+      chrome.tabs.create({ url: request.url, active: false }, (tab) => {
         const tabId = tab.id;
 
         const listener = (updatedTabId, info) => {
           if (updatedTabId === tabId && info.status === 'complete') {
             chrome.tabs.onUpdated.removeListener(listener);
 
-            // Wait a bit for JS to execute, then extract
-            setTimeout(() => {
+            // Give inline scripts time to run (window.__remixContext is set by inline scripts)
+            // then poll until we get data or timeout
+            let pollCount = 0;
+            const maxPolls = 40; // up to 20 seconds (40 x 500ms)
+
+            const tryExtract = () => {
               chrome.scripting.executeScript({
                 target: { tabId: tabId },
                 func: () => {
-                  return new Promise((resolve) => {
+                  // ── Helper: deep-search an object for chat messages ──────────
+                  function deepFindMessages(obj, found, depth) {
+                    if (!obj || depth > 14 || found.length > 1000) return;
+                    if (Array.isArray(obj)) {
+                      obj.forEach(item => deepFindMessages(item, found, depth + 1));
+                      return;
+                    }
+                    if (typeof obj !== 'object') return;
 
-                    // ── Helper: deep-search an object for chat messages ──────────
-                    function deepFindMessages(obj, found, depth) {
-                      if (!obj || depth > 12 || found.length > 500) return;
-                      if (Array.isArray(obj)) {
-                        obj.forEach(item => deepFindMessages(item, found, depth + 1));
+                    // ChatGPT: { author: { role }, content: { parts: [...] } }
+                    if (obj.author && obj.author.role && obj.content && Array.isArray(obj.content.parts)) {
+                      const role = obj.author.role;
+                      if (role === 'user' || role === 'assistant') {
+                        const text = obj.content.parts
+                          .filter(p => typeof p === 'string' || (p && typeof p.text === 'string'))
+                          .map(p => typeof p === 'string' ? p : p.text)
+                          .join('\n').trim();
+                        if (text) found.push({ role, content: text });
                         return;
                       }
-                      if (typeof obj !== 'object') return;
+                    }
 
-                      // ChatGPT pattern: { author: { role }, content: { parts: [...] } }
-                      if (obj.author && obj.author.role && obj.content && Array.isArray(obj.content.parts)) {
-                        const role = obj.author.role;
-                        if (role === 'user' || role === 'assistant') {
-                          const text = obj.content.parts
-                            .filter(p => typeof p === 'string' || (p && typeof p.text === 'string'))
-                            .map(p => typeof p === 'string' ? p : p.text)
-                            .join('\n').trim();
-                          if (text) found.push({ role, content: text });
-                          return; // don't recurse into message content
-                        }
-                      }
-
-                      // Alternative ChatGPT: { role, content: { parts } }
-                      if (obj.role && obj.content && typeof obj.content === 'object' && Array.isArray(obj.content.parts)) {
-                        const role = obj.role;
-                        if (role === 'user' || role === 'assistant') {
-                          const text = obj.content.parts
-                            .filter(p => typeof p === 'string' || (p && typeof p.text === 'string'))
-                            .map(p => typeof p === 'string' ? p : p.text)
-                            .join('\n').trim();
-                          if (text) found.push({ role, content: text });
-                          return;
-                        }
-                      }
-
-                      // Generic { role, content: string }
-                      if (typeof obj.role === 'string' && typeof obj.content === 'string') {
-                        const role = obj.role;
-                        if ((role === 'user' || role === 'assistant') && obj.content.trim()) {
-                          found.push({ role, content: obj.content.trim() });
-                          return;
-                        }
-                      }
-
-                      // Claude: { sender: "human"/"assistant", text }
-                      if ((obj.sender === 'human' || obj.sender === 'assistant') && typeof obj.text === 'string') {
-                        found.push({ role: obj.sender === 'human' ? 'user' : 'assistant', content: obj.text.trim() });
+                    // Alternative: { role, content: { parts } }
+                    if (obj.role && obj.content && typeof obj.content === 'object' && Array.isArray(obj.content.parts)) {
+                      const role = obj.role;
+                      if (role === 'user' || role === 'assistant') {
+                        const text = obj.content.parts
+                          .filter(p => typeof p === 'string' || (p && typeof p.text === 'string'))
+                          .map(p => typeof p === 'string' ? p : p.text)
+                          .join('\n').trim();
+                        if (text) found.push({ role, content: text });
                         return;
                       }
-
-                      Object.values(obj).forEach(v => deepFindMessages(v, found, depth + 1));
                     }
 
-                    // ── 1. Try window.__remixContext (ChatGPT Remix/RSC format) ──
-                    function tryRemixContext() {
-                      try {
-                        const ctx = window.__remixContext;
-                        if (!ctx) return null;
-                        const loaderData = ctx.state && ctx.state.loaderData;
-                        if (!loaderData) return null;
-
-                        let title = document.title || 'Extracted Chat';
-                        const msgs = [];
-
-                        // Search all loader routes for conversation data
-                        for (const routeKey of Object.keys(loaderData)) {
-                          const routeData = loaderData[routeKey];
-                          deepFindMessages(routeData, msgs, 0);
-                          if (msgs.length > 0) break;
-                        }
-
-                        if (msgs.length > 0) return { title, messages: msgs };
-                      } catch (e) {}
-                      return null;
+                    // Generic { role, content: string }
+                    if (typeof obj.role === 'string' && typeof obj.content === 'string') {
+                      const role = obj.role;
+                      if ((role === 'user' || role === 'assistant') && obj.content.trim()) {
+                        found.push({ role, content: obj.content.trim() });
+                        return;
+                      }
                     }
 
-                    // ── 2. Try DOM extraction ────────────────────────────────────
-                    function tryDomExtraction() {
-                      const msgs = [];
-                      const title = document.title || 'Extracted Chat';
-
-                      // ChatGPT: [data-message-author-role]
-                      const chatgptEls = document.querySelectorAll('[data-message-author-role]');
-                      if (chatgptEls.length > 0) {
-                        chatgptEls.forEach(el => {
-                          const role = el.getAttribute('data-message-author-role');
-                          if (role !== 'user' && role !== 'assistant') return;
-                          const mdEl = el.querySelector('.markdown, .prose, [class*="prose"]') || el;
-                          const content = mdEl.innerText.trim();
-                          if (content) msgs.push({ role, content });
-                        });
-                        if (msgs.length > 0) return { title, messages: msgs };
-                      }
-
-                      // Claude: .font-claude-message / .font-user-message
-                      const claudeEls = document.querySelectorAll('.font-claude-message, .font-user-message');
-                      if (claudeEls.length > 0) {
-                        claudeEls.forEach(el => {
-                          const role = el.classList.contains('font-user-message') ? 'user' : 'assistant';
-                          const content = el.innerText.trim();
-                          if (content) msgs.push({ role, content });
-                        });
-                        if (msgs.length > 0) return { title, messages: msgs };
-                      }
-
-                      // Gemini: user-query, model-response
-                      const geminiEls = document.querySelectorAll('user-query, model-response');
-                      if (geminiEls.length > 0) {
-                        geminiEls.forEach(el => {
-                          const role = el.tagName.toLowerCase() === 'user-query' ? 'user' : 'assistant';
-                          const content = el.innerText.trim();
-                          if (content) msgs.push({ role, content });
-                        });
-                        if (msgs.length > 0) return { title, messages: msgs };
-                      }
-
-                      // DeepSeek
-                      const dsUser = document.querySelectorAll('[class*="userMessage"], [class*="user-message"]');
-                      const dsBot = document.querySelectorAll('[class*="ds-markdown"], [class*="assistantMessage"]');
-                      if (dsUser.length > 0 || dsBot.length > 0) {
-                        const all = [...document.querySelectorAll('[class*="userMessage"], [class*="user-message"], [class*="ds-markdown"], [class*="assistantMessage"]')];
-                        all.forEach(el => {
-                          const cls = (el.className || '').toLowerCase();
-                          const role = cls.includes('user') ? 'user' : 'assistant';
-                          const content = el.innerText.trim();
-                          if (content) msgs.push({ role, content });
-                        });
-                        if (msgs.length > 0) return { title, messages: msgs };
-                      }
-
-                      return null;
-                    }
-
-                    // ── 3. Try script-tag JSON scanning ─────────────────────────
-                    function tryScriptScan() {
-                      const title = document.title || 'Extracted Chat';
-                      const msgs = [];
-                      const scripts = document.querySelectorAll('script');
-
-                      for (const s of scripts) {
-                        const text = s.textContent || '';
-                        if (!text.includes('role') || text.length > 5000000) continue;
-
-                        // Look for Uint8Array chunks (RSC streaming)
-                        if (text.includes('streamController') || text.includes('Uint8Array')) {
-                          const re = /new\s+Uint8Array\(\s*\[([\d,\s]+)\]\s*\)/g;
-                          let m;
-                          while ((m = re.exec(text)) !== null) {
-                            try {
-                              const bytes = m[1].split(',').map(n => parseInt(n.trim(), 10));
-                              const str = new TextDecoder().decode(new Uint8Array(bytes));
-                              const json = JSON.parse(str);
-                              deepFindMessages(json, msgs, 0);
-                            } catch (e) {}
-                          }
-                          if (msgs.length > 0) return { title, messages: msgs };
-                        }
-
-                        // Look for inline JSON assignments
-                        if (text.includes('"role"') && (text.includes('"user"') || text.includes('"assistant"'))) {
-                          try {
-                            // extract JSON objects/arrays
-                            const jsonRe = /\{[\s\S]{20,}\}/g;
-                            let jm;
-                            while ((jm = jsonRe.exec(text)) !== null) {
-                              try {
-                                const obj = JSON.parse(jm[0]);
-                                deepFindMessages(obj, msgs, 0);
-                              } catch (e) {}
-                              if (msgs.length > 0) break;
-                            }
-                          } catch (e) {}
-                          if (msgs.length > 0) return { title, messages: msgs };
-                        }
-                      }
-                      return null;
-                    }
-
-                    // ── Attempt extraction, with a DOM-ready retry ───────────────
-                    function attempt() {
-                      // Priority 1: __remixContext (available immediately, no render needed)
-                      const remix = tryRemixContext();
-                      if (remix && remix.messages.length > 0) return remix;
-
-                      // Priority 2: DOM elements
-                      const dom = tryDomExtraction();
-                      if (dom && dom.messages.length > 0) return dom;
-
-                      // Priority 3: script scanning
-                      const script = tryScriptScan();
-                      if (script && script.messages.length > 0) return script;
-
-                      return null;
-                    }
-
-                    // Try immediately, then poll every 500ms for up to 15s
-                    const immediate = attempt();
-                    if (immediate) {
-                      resolve({
-                        structuredMessages: immediate.messages,
-                        title: immediate.title,
-                        html: document.documentElement.outerHTML,
-                      });
+                    // Claude: { sender: "human"/"assistant", text }
+                    if ((obj.sender === 'human' || obj.sender === 'assistant') && typeof obj.text === 'string') {
+                      found.push({ role: obj.sender === 'human' ? 'user' : 'assistant', content: obj.text.trim() });
                       return;
                     }
 
-                    let ticks = 0;
-                    const poll = setInterval(() => {
-                      ticks++;
-                      const result = attempt();
-                      if (result || ticks >= 30) {
-                        clearInterval(poll);
-                        resolve({
-                          structuredMessages: result ? result.messages : [],
-                          title: result ? result.title : document.title,
-                          html: document.documentElement.outerHTML,
-                        });
+                    Object.values(obj).forEach(v => deepFindMessages(v, found, depth + 1));
+                  }
+
+                  // ── 1. window.__remixContext (ChatGPT RSC/Remix) ─────────────
+                  function tryRemixContext() {
+                    try {
+                      const ctx = window.__remixContext;
+                      if (!ctx) return null;
+                      const loaderData = ctx.state && ctx.state.loaderData;
+                      if (!loaderData) return null;
+                      const msgs = [];
+                      for (const key of Object.keys(loaderData)) {
+                        deepFindMessages(loaderData[key], msgs, 0);
+                        if (msgs.length > 0) break;
                       }
-                    }, 500);
-                  });
+                      if (msgs.length > 0) return { title: document.title, messages: msgs };
+                    } catch (e) {}
+                    return null;
+                  }
+
+                  // ── 2. DOM extraction ────────────────────────────────────────
+                  function tryDom() {
+                    const msgs = [];
+                    const title = document.title;
+
+                    // ChatGPT
+                    const els = document.querySelectorAll('[data-message-author-role]');
+                    if (els.length > 0) {
+                      els.forEach(el => {
+                        const role = el.getAttribute('data-message-author-role');
+                        if (role !== 'user' && role !== 'assistant') return;
+                        const inner = el.querySelector('.markdown, .prose, [class*="prose"]') || el;
+                        const text = inner.innerText.trim();
+                        if (text) msgs.push({ role, content: text });
+                      });
+                      if (msgs.length > 0) return { title, messages: msgs };
+                    }
+
+                    // Claude
+                    const claudeEls = document.querySelectorAll('.font-claude-message, .font-user-message');
+                    if (claudeEls.length > 0) {
+                      claudeEls.forEach(el => {
+                        const role = el.classList.contains('font-user-message') ? 'user' : 'assistant';
+                        const text = el.innerText.trim();
+                        if (text) msgs.push({ role, content: text });
+                      });
+                      if (msgs.length > 0) return { title, messages: msgs };
+                    }
+
+                    // Gemini
+                    const geminiEls = document.querySelectorAll('user-query, model-response');
+                    if (geminiEls.length > 0) {
+                      geminiEls.forEach(el => {
+                        const role = el.tagName.toLowerCase() === 'user-query' ? 'user' : 'assistant';
+                        const text = el.innerText.trim();
+                        if (text) msgs.push({ role, content: text });
+                      });
+                      if (msgs.length > 0) return { title, messages: msgs };
+                    }
+
+                    // DeepSeek
+                    const dsAll = [...document.querySelectorAll('[class*="userMessage"], [class*="user-message"], [class*="ds-markdown"], [class*="assistantMessage"]')];
+                    if (dsAll.length > 0) {
+                      dsAll.forEach(el => {
+                        const cls = (el.className || '').toLowerCase();
+                        const role = cls.includes('user') ? 'user' : 'assistant';
+                        const text = el.innerText.trim();
+                        if (text) msgs.push({ role, content: text });
+                      });
+                      if (msgs.length > 0) return { title, messages: msgs };
+                    }
+
+                    return null;
+                  }
+
+                  // ── 3. Script tag Uint8Array scanning ───────────────────────
+                  function tryScripts() {
+                    const msgs = [];
+                    const title = document.title;
+                    for (const s of document.querySelectorAll('script')) {
+                      const text = s.textContent || '';
+                      if (!text.includes('Uint8Array') && !text.includes('"role"')) continue;
+                      if (text.length > 5000000) continue;
+
+                      const re = /new\s+Uint8Array\(\s*\[([\d,\s]+)\]\s*\)/g;
+                      let m;
+                      while ((m = re.exec(text)) !== null) {
+                        try {
+                          const bytes = m[1].split(',').map(n => parseInt(n.trim(), 10));
+                          const str = new TextDecoder().decode(new Uint8Array(bytes));
+                          deepFindMessages(JSON.parse(str), msgs, 0);
+                        } catch (e) {}
+                      }
+                      if (msgs.length > 0) return { title, messages: msgs };
+                    }
+                    return null;
+                  }
+
+                  const remix = tryRemixContext();
+                  if (remix && remix.messages.length > 0) return { done: true, result: remix };
+
+                  const dom = tryDom();
+                  if (dom && dom.messages.length > 0) return { done: true, result: dom };
+
+                  const scripts = tryScripts();
+                  if (scripts && scripts.messages.length > 0) return { done: true, result: scripts };
+
+                  return { done: false };
                 }
               }, (results) => {
-                chrome.tabs.remove(tabId);
-                let structuredMessages = [];
-                let title = '';
-                let html = null;
+                const outcome = results && results[0] && results[0].result;
 
-                if (results && results[0] && results[0].result) {
-                  const r = results[0].result;
-                  structuredMessages = r.structuredMessages || [];
-                  title = r.title || '';
-                  html = r.html || null;
+                if (outcome && outcome.done) {
+                  // Success — close tab and respond
+                  chrome.tabs.remove(tabId);
+                  const r = outcome.result;
+                  console.log(`Extracted ${r.messages.length} messages from "${r.title}"`);
+                  sendResponse({
+                    html: null,
+                    structuredMessages: r.messages,
+                    title: r.title,
+                    success: true,
+                  });
+                } else {
+                  pollCount++;
+                  if (pollCount < maxPolls) {
+                    // Not ready yet — retry after 500ms
+                    setTimeout(tryExtract, 500);
+                  } else {
+                    // Timed out — grab raw HTML as last resort
+                    chrome.scripting.executeScript({
+                      target: { tabId: tabId },
+                      func: () => document.documentElement.outerHTML,
+                    }, (htmlResults) => {
+                      chrome.tabs.remove(tabId);
+                      const html = htmlResults && htmlResults[0] && htmlResults[0].result;
+                      console.warn('Extraction timed out, falling back to raw HTML');
+                      sendResponse({
+                        html: html || null,
+                        structuredMessages: [],
+                        title: document.title || '',
+                        success: !!html,
+                      });
+                    });
+                  }
                 }
-
-                console.log(`Extraction done: ${structuredMessages.length} structured msgs, html length: ${html ? html.length : 0}`);
-                sendResponse({ html, structuredMessages, title, success: !!html || structuredMessages.length > 0 });
               });
-            }, 2000); // 2s initial wait for page JS to execute
+            };
+
+            // Start polling after a short initial delay (let inline scripts run)
+            setTimeout(tryExtract, 1500);
           }
         };
 
