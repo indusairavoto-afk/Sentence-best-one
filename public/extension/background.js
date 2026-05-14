@@ -60,6 +60,13 @@ chrome.runtime.onMessageExternal.addListener(
                             'cite, [class*="citation"], [class*="source"]'
                           );
                           noise.forEach(el => el.remove());
+                          // Remove "Show more" / "Show less" expand-collapse UI text nodes
+                          clone.querySelectorAll('*').forEach(el => {
+                            const t = (el.textContent || '').trim().toLowerCase();
+                            if (t === 'show more' || t === 'show less' || t === 'show moreshow less') {
+                              el.remove();
+                            }
+                          });
 
                           const htmlContent = clone.innerHTML.trim();
                           if (htmlContent) msgs.push({ role, htmlContent });

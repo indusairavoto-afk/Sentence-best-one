@@ -418,23 +418,46 @@ app.post("/api/extract-html", async (req, res) => {
         if (m.role !== 'user' && m.role !== 'assistant') continue;
 
         let content = '';
+        let content_html = '';
         if (m.htmlContent && typeof m.htmlContent === 'string' && m.htmlContent.trim()) {
-          // Convert HTML → proper Markdown (preserves headers, lists, bold, tables)
+          // Clean the HTML with cheerio — remove all UI chrome
           const $msg = cheerio.load(m.htmlContent);
-          // Remove noise: copy buttons, aria-hidden elements, citation badges
+          // Remove buttons, icons, noise
           $msg('button, [aria-label], [aria-hidden="true"], .sr-only, svg, noscript, style, script').remove();
           $msg('[class*="citation"], [class*="source-chip"], [class*="footnote"], [class*="action"]').remove();
+          $msg('[class*="toolbar"], [class*="tooltip"], [class*="copy"], [class*="like"], [class*="dislike"]').remove();
+          // Remove elements whose text is only "Show more" / "Show less" (ChatGPT expand buttons)
+          $msg('*').each((_, el) => {
+            const txt = $msg(el).text().trim().toLowerCase();
+            if (txt === 'show more' || txt === 'show less' || txt === 'show moreshow less') {
+              $msg(el).remove();
+            }
+          });
+
+          const cleanedHtml = $msg('body').html() || '';
+
+          // content_html = cleaned HTML for display in the preview
+          content_html = cleanedHtml;
+
+          // content = Markdown for PDF/MD/JSON exports
           try {
-            content = turndownService.turndown($msg.html() || '');
+            content = turndownService.turndown(cleanedHtml);
           } catch {
-            content = $msg.text().trim();
+            content = $msg('body').text().trim();
           }
         } else if (typeof m.content === 'string') {
           content = m.content.trim();
+          content_html = '';
         }
 
         content = content.trim();
-        if (content) validMessages.push({ role: m.role, content });
+        // Strip any leftover "show more" / "show less" lines from markdown
+        content = content.split('\n').filter(line => {
+          const l = line.trim().toLowerCase();
+          return l !== 'show more' && l !== 'show less' && l !== 'show moreshow less';
+        }).join('\n').trim();
+
+        if (content) validMessages.push({ role: m.role, content, content_html } as any);
       }
 
       if (validMessages.length > 0) {
