@@ -420,14 +420,14 @@ app.post("/api/extract-html", async (req, res) => {
         let content = '';
         if (m.htmlContent && typeof m.htmlContent === 'string' && m.htmlContent.trim()) {
           // Convert HTML → proper Markdown (preserves headers, lists, bold, tables)
-          const $ = require('cheerio').load(m.htmlContent);
+          const $msg = cheerio.load(m.htmlContent);
           // Remove noise: copy buttons, aria-hidden elements, citation badges
-          $('button, [aria-label], [aria-hidden="true"], .sr-only, svg, noscript, style, script').remove();
-          $('[class*="citation"], [class*="source-chip"], [class*="footnote"], [class*="action"]').remove();
+          $msg('button, [aria-label], [aria-hidden="true"], .sr-only, svg, noscript, style, script').remove();
+          $msg('[class*="citation"], [class*="source-chip"], [class*="footnote"], [class*="action"]').remove();
           try {
-            content = turndownService.turndown($.html() || '');
+            content = turndownService.turndown($msg.html() || '');
           } catch {
-            content = $.text().trim();
+            content = $msg.text().trim();
           }
         } else if (typeof m.content === 'string') {
           content = m.content.trim();
