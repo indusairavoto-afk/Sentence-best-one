@@ -1237,7 +1237,9 @@ function extractMessagesFromHtml(html: string) {
           });
         }
       });
-    } else {
+    }
+
+    if (messages.length === 0) {
       // Absolute fallback: Just extract all text from the main container
       let main = $('main, .main, #content, [role="main"]').first();
       if (main.length === 0) main = $("body");

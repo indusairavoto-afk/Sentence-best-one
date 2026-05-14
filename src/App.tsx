@@ -344,6 +344,7 @@ export default function App() {
                 } else if (!response || !response.success || !response.html) {
                   reject(new Error('Extension failed to extract document HTML from the page.'));
                 } else {
+                  console.log("Got HTML from extension, length:", response.html.length);
                   resolve(response.html);
                 }
               });
