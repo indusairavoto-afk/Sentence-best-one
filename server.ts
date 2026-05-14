@@ -411,18 +411,41 @@ app.post("/api/extract-html", async (req, res) => {
 
     // If the extension already extracted structured messages from the DOM, use them directly
     if (structuredMessages && Array.isArray(structuredMessages) && structuredMessages.length > 0) {
-      const validMessages = structuredMessages
-        .filter((m: any) => m && typeof m.role === 'string' && typeof m.content === 'string' && m.content.trim())
-        .map((m: any) => ({ role: m.role, content: m.content.trim() }));
+      let validMessages: { role: string; content: string }[] = structuredMessages
+        .filter((m: any) => m && typeof m.role === 'string' &&
+          (m.role === 'user' || m.role === 'assistant') &&
+          typeof m.content === 'string' && m.content.trim())
+        .map((m: any) => ({ role: m.role as string, content: m.content.trim() as string }));
 
       if (validMessages.length > 0) {
-        console.log("Using pre-extracted structured messages from extension, count:", validMessages.length);
-        return res.json({
-          title: structuredTitle || "Extracted Chat",
-          messages: validMessages,
-          sessionId: `session_${Date.now()}`,
-          extractedAt: new Date().toISOString(),
+        // Drop any leading assistant messages — conversation must start with user
+        while (validMessages.length > 0 && validMessages[0].role !== 'user') {
+          validMessages.shift();
+        }
+
+        // Deduplicate consecutive same-role messages (keep first)
+        const deduped: { role: string; content: string }[] = [];
+        for (const msg of validMessages) {
+          if (deduped.length === 0 || deduped[deduped.length - 1].role !== msg.role) {
+            deduped.push(msg);
+          }
+        }
+
+        // Deduplicate identical adjacent content
+        const final = deduped.filter((msg, idx) => {
+          if (idx === 0) return true;
+          return msg.content !== deduped[idx - 1].content;
         });
+
+        if (final.length > 0) {
+          console.log("Using pre-extracted structured messages from extension, count:", final.length);
+          return res.json({
+            title: structuredTitle || "Extracted Chat",
+            messages: final,
+            sessionId: `session_${Date.now()}`,
+            extractedAt: new Date().toISOString(),
+          });
+        }
       }
     }
 

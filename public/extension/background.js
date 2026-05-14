@@ -3,7 +3,6 @@ chrome.runtime.onMessageExternal.addListener(
     if (request.action === 'fetch_html' && request.url) {
       console.log('Received request to fetch:', request.url);
 
-      // Open in background (hidden) - do NOT make active so user isn't interrupted
       chrome.tabs.create({ url: request.url, active: false }, (tab) => {
         const tabId = tab.id;
 
@@ -11,16 +10,33 @@ chrome.runtime.onMessageExternal.addListener(
           if (updatedTabId === tabId && info.status === 'complete') {
             chrome.tabs.onUpdated.removeListener(listener);
 
-            // Give inline scripts time to run (window.__remixContext is set by inline scripts)
-            // then poll until we get data or timeout
             let pollCount = 0;
-            const maxPolls = 40; // up to 20 seconds (40 x 500ms)
+            const maxPolls = 40; // up to 20 seconds
 
             const tryExtract = () => {
               chrome.scripting.executeScript({
                 target: { tabId: tabId },
                 func: () => {
-                  // ── Helper: deep-search an object for chat messages ──────────
+
+                  // ── Utility: find a value in an object by key name ───────────
+                  function findByKey(obj, key, depth) {
+                    if (!obj || depth > 10 || typeof obj !== 'object') return undefined;
+                    if (Array.isArray(obj)) {
+                      for (const item of obj) {
+                        const r = findByKey(item, key, depth + 1);
+                        if (r !== undefined) return r;
+                      }
+                      return undefined;
+                    }
+                    if (key in obj) return obj[key];
+                    for (const v of Object.values(obj)) {
+                      const r = findByKey(v, key, depth + 1);
+                      if (r !== undefined) return r;
+                    }
+                    return undefined;
+                  }
+
+                  // ── Fallback: deep-search for message objects ────────────────
                   function deepFindMessages(obj, found, depth) {
                     if (!obj || depth > 14 || found.length > 1000) return;
                     if (Array.isArray(obj)) {
@@ -42,7 +58,7 @@ chrome.runtime.onMessageExternal.addListener(
                       }
                     }
 
-                    // Alternative: { role, content: { parts } }
+                    // { role, content: { parts } }
                     if (obj.role && obj.content && typeof obj.content === 'object' && Array.isArray(obj.content.parts)) {
                       const role = obj.role;
                       if (role === 'user' || role === 'assistant') {
@@ -55,11 +71,10 @@ chrome.runtime.onMessageExternal.addListener(
                       }
                     }
 
-                    // Generic { role, content: string }
+                    // { role, content: string }
                     if (typeof obj.role === 'string' && typeof obj.content === 'string') {
-                      const role = obj.role;
-                      if ((role === 'user' || role === 'assistant') && obj.content.trim()) {
-                        found.push({ role, content: obj.content.trim() });
+                      if ((obj.role === 'user' || obj.role === 'assistant') && obj.content.trim()) {
+                        found.push({ role: obj.role, content: obj.content.trim() });
                         return;
                       }
                     }
@@ -73,19 +88,50 @@ chrome.runtime.onMessageExternal.addListener(
                     Object.values(obj).forEach(v => deepFindMessages(v, found, depth + 1));
                   }
 
-                  // ── 1. window.__remixContext (ChatGPT RSC/Remix) ─────────────
+                  // ── 1. window.__remixContext — ChatGPT's primary data source ─
                   function tryRemixContext() {
                     try {
                       const ctx = window.__remixContext;
                       if (!ctx) return null;
                       const loaderData = ctx.state && ctx.state.loaderData;
                       if (!loaderData) return null;
-                      const msgs = [];
-                      for (const key of Object.keys(loaderData)) {
-                        deepFindMessages(loaderData[key], msgs, 0);
-                        if (msgs.length > 0) break;
+
+                      let title = document.title;
+
+                      for (const routeKey of Object.keys(loaderData)) {
+                        const routeData = loaderData[routeKey];
+
+                        // Try linear_conversation first (ORDERED array — correct message sequence)
+                        const linearConv = findByKey(routeData, 'linear_conversation', 0);
+                        if (Array.isArray(linearConv) && linearConv.length > 0) {
+                          const msgs = [];
+                          for (const item of linearConv) {
+                            const msg = item && item.message;
+                            if (!msg || !msg.author || !msg.content) continue;
+                            const role = msg.author.role;
+                            if (role !== 'user' && role !== 'assistant') continue;
+                            const parts = msg.content.parts;
+                            if (!Array.isArray(parts)) continue;
+                            const text = parts
+                              .filter(p => typeof p === 'string' || (p && typeof p.text === 'string'))
+                              .map(p => typeof p === 'string' ? p : p.text)
+                              .join('\n').trim();
+                            if (text) msgs.push({ role, content: text });
+                          }
+                          if (msgs.length > 0) {
+                            const foundTitle = findByKey(routeData, 'title', 0);
+                            return { title: foundTitle || title, messages: msgs };
+                          }
+                        }
+
+                        // Fallback: deep search this route's data
+                        const msgs = [];
+                        deepFindMessages(routeData, msgs, 0);
+                        if (msgs.length > 0) {
+                          const foundTitle = findByKey(routeData, 'title', 0);
+                          return { title: foundTitle || title, messages: msgs };
+                        }
                       }
-                      if (msgs.length > 0) return { title: document.title, messages: msgs };
                     } catch (e) {}
                     return null;
                   }
@@ -95,7 +141,7 @@ chrome.runtime.onMessageExternal.addListener(
                     const msgs = [];
                     const title = document.title;
 
-                    // ChatGPT
+                    // ChatGPT: [data-message-author-role] — in DOM order = conversation order
                     const els = document.querySelectorAll('[data-message-author-role]');
                     if (els.length > 0) {
                       els.forEach(el => {
@@ -183,7 +229,6 @@ chrome.runtime.onMessageExternal.addListener(
                 const outcome = results && results[0] && results[0].result;
 
                 if (outcome && outcome.done) {
-                  // Success — close tab and respond
                   chrome.tabs.remove(tabId);
                   const r = outcome.result;
                   console.log(`Extracted ${r.messages.length} messages from "${r.title}"`);
@@ -196,7 +241,6 @@ chrome.runtime.onMessageExternal.addListener(
                 } else {
                   pollCount++;
                   if (pollCount < maxPolls) {
-                    // Not ready yet — retry after 500ms
                     setTimeout(tryExtract, 500);
                   } else {
                     // Timed out — grab raw HTML as last resort
@@ -210,7 +254,7 @@ chrome.runtime.onMessageExternal.addListener(
                       sendResponse({
                         html: html || null,
                         structuredMessages: [],
-                        title: document.title || '',
+                        title: '',
                         success: !!html,
                       });
                     });
@@ -219,7 +263,6 @@ chrome.runtime.onMessageExternal.addListener(
               });
             };
 
-            // Start polling after a short initial delay (let inline scripts run)
             setTimeout(tryExtract, 1500);
           }
         };
@@ -227,7 +270,7 @@ chrome.runtime.onMessageExternal.addListener(
         chrome.tabs.onUpdated.addListener(listener);
       });
 
-      return true; // async response
+      return true;
     }
   }
 );
