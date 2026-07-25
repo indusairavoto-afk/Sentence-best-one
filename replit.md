@@ -14,7 +14,7 @@ Server starts on port 5000. The Vite dev server is embedded — no separate fron
 
 | Secret | Purpose |
 |---|---|
-| `GEMINI_API_KEY` | Powers the AI chat via Google Gemini API (required for chat to work) |
+| `AI_INTEGRATIONS_OPENAI_API_KEY` | Authenticates server-side chat requests through Replit LLM Gateway |
 
 Set these in the Replit Secrets panel.
 
@@ -22,7 +22,7 @@ Set these in the Replit Secrets panel.
 
 - **Frontend**: React 19 + Vite + Tailwind CSS v4
 - **Backend**: Express (TypeScript, run with `tsx`)
-- **AI**: `@google/genai` (Gemini) — streaming SSE via `/api/chat`
+- **AI**: Replit LLM Gateway (OpenAI-compatible streaming SSE) via `/api/chat`
 - **Theme**: Dark/light toggle, persisted to localStorage
 
 ## Key files

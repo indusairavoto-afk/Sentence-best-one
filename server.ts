@@ -9,7 +9,6 @@ import TurndownService from "turndown";
 import { gfm } from "turndown-plugin-gfm";
 
 import axios from 'axios';
-import { GoogleGenAI } from '@google/genai';
 
 const ALLOWED_TAGS = new Set([
   'pre', 'code', 'table', 'thead', 'tbody', 'tr', 'th', 'td',
@@ -192,11 +191,24 @@ app.get("/api/health", (req, res) => {
 });
 
 // ── AI Chat endpoint ──────────────────────────────────────────────────────────
-const GEMINI_MODEL_MAP: Record<string, string> = {
-  'auto':             'gemini-2.5-flash',
-  'gemini-2.5-pro':   'gemini-2.5-pro',
-  'gemini-2.5-flash': 'gemini-2.5-flash',
-  'gemini-2.0-flash': 'gemini-2.0-flash',
+const LLM_GATEWAY_BASE_URL =
+  process.env.AI_INTEGRATIONS_OPENAI_BASE_URL || "https://integrations.replit.com/v1";
+
+const GATEWAY_MODEL_MAP: Record<string, string> = {
+  auto: "gpt-4o-mini",
+  "gpt-4o": "gpt-4o",
+  "gpt-4o-mini": "gpt-4o-mini",
+  "gemini-2.5-pro": "google/gemini-2.5-pro",
+  "gemini-2.5-flash": "google/gemini-2.5-flash",
+  "gemini-2.0-flash": "google/gemini-2.0-flash",
+  "claude-3.7-sonnet": "anthropic/claude-3.7-sonnet",
+  "claude-3.5-haiku": "anthropic/claude-3.5-haiku",
+  "grok-3": "xai/grok-3",
+  "grok-3-mini": "xai/grok-3-mini",
+  "deepseek-r1": "deepseek/deepseek-r1",
+  "sonar-pro": "perplexity/sonar-pro",
+  "llama-4-maverick": "meta/llama-4-maverick",
+  "mistral-nemo": "mistral/mistral-nemo",
 };
 
 app.post("/api/chat", async (req, res) => {
@@ -206,35 +218,64 @@ app.post("/api/chat", async (req, res) => {
       model: string;
     };
 
-    const apiKey = process.env.GEMINI_API_KEY;
+    const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
     if (!apiKey) {
-      return res.status(500).json({ error: "GEMINI_API_KEY not configured. Add it in Replit Secrets." });
+      return res.status(500).json({ error: "AI_INTEGRATIONS_OPENAI_API_KEY not configured. Add it in Replit Secrets." });
     }
 
-    const geminiModelName = GEMINI_MODEL_MAP[model] ?? 'gemini-2.5-flash';
-    const ai = new GoogleGenAI({ apiKey });
+    const gatewayModel = GATEWAY_MODEL_MAP[model] ?? "gpt-4o-mini";
+    const gatewayResponse = await fetch(`${LLM_GATEWAY_BASE_URL}/chat/completions`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: gatewayModel,
+        messages,
+        stream: true,
+      }),
+    });
 
-    // Convert messages to Gemini format (alternating user/model, last must be user)
-    const contents = messages.map((m) => ({
-      role: m.role === 'assistant' ? 'model' : 'user',
-      parts: [{ text: m.content }],
-    }));
+    if (!gatewayResponse.ok) {
+      const errorBody = await gatewayResponse.text();
+      throw new Error(`LLM Gateway request failed (${gatewayResponse.status}): ${errorBody.slice(0, 500)}`);
+    }
+    if (!gatewayResponse.body) {
+      throw new Error("LLM Gateway returned an empty response stream.");
+    }
 
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
     res.flushHeaders();
 
-    const stream = await ai.models.generateContentStream({
-      model: geminiModelName,
-      contents,
-    });
-
-    for await (const chunk of stream) {
-      const text = chunk.text;
-      if (text) {
-        res.write(`data: ${JSON.stringify({ text })}\n\n`);
+    const reader = gatewayResponse.body.getReader();
+    const decoder = new TextDecoder();
+    let buffered = "";
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffered += decoder.decode(value, { stream: true });
+        const events = buffered.split("\n\n");
+        buffered = events.pop() || "";
+        for (const event of events) {
+          for (const line of event.split("\n")) {
+            if (!line.startsWith("data: ")) continue;
+            const data = line.slice(6);
+            if (data === "[DONE]") continue;
+            try {
+              const text = JSON.parse(data).choices?.[0]?.delta?.content;
+              if (text) res.write(`data: ${JSON.stringify({ text })}\n\n`);
+            } catch {
+              // Ignore incomplete or non-JSON SSE events.
+            }
+          }
+        }
       }
+    } finally {
+      reader.releaseLock();
     }
 
     res.write('data: [DONE]\n\n');
