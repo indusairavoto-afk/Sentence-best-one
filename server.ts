@@ -195,9 +195,9 @@ const LLM_GATEWAY_BASE_URL =
   process.env.AI_INTEGRATIONS_OPENAI_BASE_URL || "https://integrations.replit.com/v1";
 
 const GATEWAY_MODEL_MAP: Record<string, string> = {
-  auto: "gpt-4o-mini",
-  "gpt-4o": "gpt-4o",
-  "gpt-4o-mini": "gpt-4o-mini",
+  auto: "google/gemini-2.5-flash",
+  "gpt-4o": "openai/gpt-4o",
+  "gpt-4o-mini": "openai/gpt-4o-mini",
   "gemini-2.5-pro": "google/gemini-2.5-pro",
   "gemini-2.5-flash": "google/gemini-2.5-flash",
   "gemini-2.0-flash": "google/gemini-2.0-flash",
