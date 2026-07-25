@@ -42,3 +42,8 @@ externalPort = 3000
 deploymentTarget = "autoscale"
 run = ["node", "dist/server.cjs"]
 build = ["npm", "run", "build"]
+
+[userenv]
+
+[userenv.shared]
+AI_INTEGRATIONS_OPENAI_BASE_URL = "https://api.llmgateway.io/v1"
