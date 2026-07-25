@@ -1,0 +1,46 @@
+2026-07-25T06:26:08.742953432Z ==> Downloading cache...
+2026-07-25T06:26:08.767019437Z ==> Cloning from https://github.com/indusairavoto-afk/Sentence-best-one
+2026-07-25T06:26:09.972565781Z ==> Checking out commit 5737952ccbaf7d61675b429037542094c1139f88 in branch main
+2026-07-25T06:26:18.029009762Z ==> Downloaded 165MB in 9s. Extraction took 0s.
+2026-07-25T06:26:18.474645711Z ==> Requesting Node.js version >=20.0.0
+2026-07-25T06:26:18.614421217Z ==> Using Node.js version 26.5.0 via /opt/render/project/src/package.json
+2026-07-25T06:26:18.61442895Z ==> Docs on specifying a Node.js version: https://render.com/docs/node-version
+2026-07-25T06:26:18.614430151Z ==> Installing Node.js version 26.5.0...
+2026-07-25T06:26:19.513363171Z ==> Running build command 'npm install; npm run build'...
+2026-07-25T06:27:32.317614131Z npm error code ENOTFOUND
+2026-07-25T06:27:32.317630214Z npm error syscall getaddrinfo
+2026-07-25T06:27:32.317631469Z npm error errno ENOTFOUND
+2026-07-25T06:27:32.317682395Z npm error network request to http://package-firewall.replit.local/npm/websocket-driver/-/websocket-driver-0.7.5.tgz failed, reason: getaddrinfo ENOTFOUND package-firewall.replit.local
+2026-07-25T06:27:32.318199484Z npm error network This is a problem related to network connectivity.
+2026-07-25T06:27:32.31820263Z npm error network In most cases you are behind a proxy or have bad network settings.
+2026-07-25T06:27:32.31820362Z npm error network
+2026-07-25T06:27:32.318204873Z npm error network If you are behind a proxy, please make sure that the 'proxy' config is set properly.  See: 'npm help config'
+2026-07-25T06:27:32.31998169Z npm error A complete log of this run can be found in: /opt/render/.cache/_logs/2026-07-25T06_26_19_567Z-debug-0.log
+2026-07-25T06:27:32.451939055Z 
+2026-07-25T06:27:32.45195375Z > react-example@0.0.0 build
+2026-07-25T06:27:32.451956739Z > node build-zip.cjs && vite build && esbuild server.ts --platform=node --format=cjs --outfile=dist/server.cjs --bundle --packages=external
+2026-07-25T06:27:32.451958612Z 
+2026-07-25T06:27:32.4732513Z node:internal/modules/cjs/loader:1573
+2026-07-25T06:27:32.473261704Z   throw err;
+2026-07-25T06:27:32.473262814Z   ^
+2026-07-25T06:27:32.473263589Z 
+2026-07-25T06:27:32.47326445Z Error: Cannot find module 'archiver'
+2026-07-25T06:27:32.473265256Z Require stack:
+2026-07-25T06:27:32.473266197Z - /opt/render/project/src/build-zip.cjs
+2026-07-25T06:27:32.473267245Z     at Module._resolveFilename (node:internal/modules/cjs/loader:1569:15)
+2026-07-25T06:27:32.473268025Z     at wrapResolveFilename (node:internal/modules/cjs/loader:1123:27)
+2026-07-25T06:27:32.473268865Z     at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1147:10)
+2026-07-25T06:27:32.473269593Z     at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1174:12)
+2026-07-25T06:27:32.473270736Z     at Module._load (node:internal/modules/cjs/loader:1346:5)
+2026-07-25T06:27:32.473271487Z     at wrapModuleLoad (node:internal/modules/cjs/loader:261:19)
+2026-07-25T06:27:32.473272475Z     at Module.require (node:internal/modules/cjs/loader:1679:12)
+2026-07-25T06:27:32.473273753Z     at require (node:internal/modules/helpers:196:16)
+2026-07-25T06:27:32.473274553Z     at Object.<anonymous> (/opt/render/project/src/build-zip.cjs:3:18)
+2026-07-25T06:27:32.473275465Z     at Module._compile (node:internal/modules/cjs/loader:1934:14) {
+2026-07-25T06:27:32.473283228Z   code: 'MODULE_NOT_FOUND',
+2026-07-25T06:27:32.473284248Z   requireStack: [ '/opt/render/project/src/build-zip.cjs' ]
+2026-07-25T06:27:32.473285083Z }
+2026-07-25T06:27:32.473285999Z 
+2026-07-25T06:27:32.473286968Z Node.js v26.5.0
+2026-07-25T06:27:32.501084778Z ==> Build failed 😞
+2026-07-25T06:27:32.501097086Z ==> Common ways to troubleshoot your deploy: https://render.com/docs/troubleshooting-deploys
