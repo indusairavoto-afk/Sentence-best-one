@@ -439,7 +439,7 @@ export function ChatPage({ initialMessage, initialModel, theme, toggleTheme, onN
                 </div>
               </div>
               <p className="text-center text-[10px] text-zinc-400 mt-2">
-                Powered by Gemini · Other models coming soon
+                Powered by Groq · Free open-source models
               </p>
             </div>
           </div>
