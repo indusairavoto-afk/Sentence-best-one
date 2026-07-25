@@ -147,8 +147,10 @@ export function ChatPage({ initialMessage, initialModel, theme, toggleTheme, onN
 
     updateChat(activeChatId, (c) => ({
       ...c,
-      messages: [...c.messages, userMsg, assistantMsg],
+      messages: [...c.messages, assistantMsg],
     }));
+
+    const SYSTEM_PROMPT = `You are the AI assistant for Seamless Bridge, an all-in-one AI platform that gives users access to multiple leading AI models (including Meta Llama, Mistral, Gemma, and DeepSeek) in a private, secure workspace. You help users brainstorm ideas, refine responses, write, code, analyze, and more. Always be helpful, concise, and friendly.`;
 
     try {
       const history = currentMessages.map((m) => ({ role: m.role, content: m.content }));
@@ -156,7 +158,11 @@ export function ChatPage({ initialMessage, initialModel, theme, toggleTheme, onN
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          messages: [...history, { role: 'user', content: trimmed }],
+          messages: [
+            { role: 'system', content: SYSTEM_PROMPT },
+            ...history,
+            { role: 'user', content: trimmed },
+          ],
           model: selectedModel.id,
         }),
       });
