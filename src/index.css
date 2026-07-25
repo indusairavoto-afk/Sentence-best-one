@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* Enable class-based dark mode for Tailwind v4 */
+@custom-variant dark (&:is(.dark *));
+
 /* ── Minimal modern scrollbar ─────────────────────────────────────── */
 * {
   scrollbar-width: thin;
