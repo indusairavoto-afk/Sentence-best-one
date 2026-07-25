@@ -37,7 +37,7 @@ function MarkdownContent({ content }: { content: string }) {
   const formatted = content
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
     .replace(/\*(.+?)\*/g, '<em>$1</em>')
-    .replace(/`([^`]+)`/g, '<code class="bg-zinc-800 text-zinc-200 px-1 py-0.5 rounded text-sm font-mono">$1</code>')
+    .replace(/`([^`]+)`/g, '<code class="bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 px-1 py-0.5 rounded text-sm font-mono">$1</code>')
     .replace(/^### (.+)$/gm, '<h3 class="text-base font-bold mt-4 mb-1">$1</h3>')
     .replace(/^## (.+)$/gm, '<h2 class="text-lg font-bold mt-5 mb-2">$1</h2>')
     .replace(/^# (.+)$/gm, '<h1 class="text-xl font-bold mt-6 mb-2">$1</h1>')
@@ -47,7 +47,7 @@ function MarkdownContent({ content }: { content: string }) {
     .replace(/\n/g, '<br/>');
   return (
     <div
-      className="prose-sm text-zinc-200 leading-relaxed"
+      className="prose-sm text-zinc-800 dark:text-zinc-200 leading-relaxed"
       dangerouslySetInnerHTML={{ __html: `<p class="mb-3">${formatted}</p>` }}
     />
   );
@@ -71,7 +71,7 @@ function ProviderDot({ model }: { model: AIModel }) {
     );
   }
   return (
-    <div className="w-3.5 h-3.5 rounded-full bg-zinc-600 text-zinc-300 flex items-center justify-center text-[8px] font-bold">
+    <div className="w-3.5 h-3.5 rounded-full bg-zinc-300 dark:bg-zinc-600 text-zinc-700 dark:text-zinc-300 flex items-center justify-center text-[8px] font-bold">
       {model.providerShort.slice(0, 1)}
     </div>
   );
@@ -372,7 +372,7 @@ export function ChatPage({ initialMessage, initialModel, theme, toggleTheme, onN
                 <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                   {msg.role === 'assistant' && (
                     <div className="flex gap-3 max-w-[85%]">
-                      <div className="w-7 h-7 rounded-xl bg-zinc-900 dark:bg-zinc-800 border border-zinc-200 dark:border-white/10 flex items-center justify-center shrink-0 mt-0.5">
+                      <div className="w-7 h-7 rounded-xl bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-white/10 flex items-center justify-center shrink-0 mt-0.5">
                         {msg.model ? <ProviderDot model={msg.model} /> : <Zap size={12} className="text-purple-400" />}
                       </div>
                       <div className="flex-1 min-w-0">
@@ -393,7 +393,7 @@ export function ChatPage({ initialMessage, initialModel, theme, toggleTheme, onN
                     </div>
                   )}
                   {msg.role === 'user' && (
-                    <div className="max-w-[75%] px-4 py-2.5 rounded-2xl bg-zinc-900 dark:bg-zinc-800 text-zinc-100 text-sm leading-relaxed">
+                    <div className="max-w-[75%] px-4 py-2.5 rounded-2xl bg-zinc-900 dark:bg-zinc-800 text-white text-sm leading-relaxed">
                       {msg.content}
                     </div>
                   )}
