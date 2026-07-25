@@ -1,5 +1,18 @@
 export type ModelTier = 'light' | 'pro' | 'max';
 
+// Shared logo URLs (Cloudinary-hosted, already used by AILogoMarquee)
+const CDN = 'https://res.cloudinary.com/domyd01x9/image/upload/q_auto/f_auto';
+export const PROVIDER_LOGOS: Record<string, string> = {
+  OpenAI:      `${CDN}/v1778425627/chatgpt-icon_dnsvgw.webp`,
+  Google:      `${CDN}/v1778425667/Google_Gemini_icon_2025.svg_rsefbe.webp`,
+  Anthropic:   `${CDN}/v1778425650/claude-ai-icon_kp64b4.webp`,
+  Perplexity:  `${CDN}/v1778425477/perplexity-ai-icon_tdawdq.webp`,
+  DeepSeek:    `${CDN}/v1778425429/deepseek-logo-icon_hpuvjw.webp`,
+  xAI:         `${CDN}/v1778426015/Grok-icon.svg_y9wwzw.png`,
+  Meta:        'https://cdn.simpleicons.org/meta/0467DF',
+  Mistral:     'https://cdn.simpleicons.org/mistral/FF7000',
+};
+
 export interface AIModel {
   id: string;
   name: string;
@@ -13,7 +26,6 @@ export interface AIModel {
   speed: number;   // 1-5
   quality: number; // 1-5
   cost: number;    // 1-5 (5 = cheapest)
-  iconColor: string;
 }
 
 export const AI_MODELS: AIModel[] = [
@@ -28,7 +40,6 @@ export const AI_MODELS: AIModel[] = [
     speed: 5,
     quality: 4,
     cost: 5,
-    iconColor: '#a855f7',
   },
   // OpenAI
   {
@@ -38,13 +49,12 @@ export const AI_MODELS: AIModel[] = [
     providerShort: 'OpenAI',
     tier: 'max',
     multiplier: '3.5x',
-    description: "OpenAI's frontier model for complex coding, professional writing, and deep analysis. Faster and more affordable than GPT-4.5.",
+    description: "Frontier model for complex coding, professional writing, and deep analysis.",
     tags: ['Reasoning', 'Vision', 'Web Search', 'Image Context'],
     bestAt: ['Coding', 'Analysis', 'Writing'],
     speed: 4,
     quality: 5,
     cost: 2,
-    iconColor: '#10a37f',
   },
   {
     id: 'gpt-4o-mini',
@@ -53,13 +63,12 @@ export const AI_MODELS: AIModel[] = [
     providerShort: 'OpenAI',
     tier: 'pro',
     multiplier: '1x',
-    description: 'Fast and affordable OpenAI model optimized for everyday tasks and high-volume use cases.',
+    description: 'Fast and affordable — optimized for everyday tasks and high-volume use cases.',
     tags: ['Vision', 'Fast'],
     bestAt: ['Speed', 'Cost', 'Tasks'],
     speed: 5,
     quality: 3,
     cost: 5,
-    iconColor: '#10a37f',
   },
   // Google
   {
@@ -69,13 +78,12 @@ export const AI_MODELS: AIModel[] = [
     providerShort: 'Google',
     tier: 'max',
     multiplier: '3.5x',
-    description: "Google's most capable model with advanced reasoning and a massive 1M token context window.",
+    description: "Most capable Gemini model with advanced reasoning and a 1M token context window.",
     tags: ['Reasoning', 'Vision', 'Long Context'],
     bestAt: ['Reasoning', 'Analysis', 'Coding'],
     speed: 3,
     quality: 5,
     cost: 2,
-    iconColor: '#4285F4',
   },
   {
     id: 'gemini-2.5-flash',
@@ -90,7 +98,6 @@ export const AI_MODELS: AIModel[] = [
     speed: 5,
     quality: 4,
     cost: 4,
-    iconColor: '#4285F4',
   },
   {
     id: 'gemini-2.0-flash',
@@ -99,13 +106,12 @@ export const AI_MODELS: AIModel[] = [
     providerShort: 'Google',
     tier: 'light',
     multiplier: '0.5x',
-    description: 'Google\'s fast and efficient model, great for real-time interactions and high-volume tasks.',
+    description: 'Fast and efficient — great for real-time interactions and high-volume tasks.',
     tags: ['Fast', 'Vision'],
     bestAt: ['Speed', 'Tasks'],
     speed: 5,
     quality: 3,
     cost: 5,
-    iconColor: '#4285F4',
   },
   // Anthropic
   {
@@ -115,13 +121,12 @@ export const AI_MODELS: AIModel[] = [
     providerShort: 'Anthropic',
     tier: 'max',
     multiplier: '3x',
-    description: "Anthropic's most intelligent model — exceptional at nuanced writing, coding, and reasoning.",
+    description: "Exceptional at nuanced writing, coding, and long-form reasoning with extended thinking.",
     tags: ['Reasoning', 'Vision', 'Long Context'],
     bestAt: ['Writing', 'Coding', 'Analysis'],
     speed: 3,
     quality: 5,
     cost: 2,
-    iconColor: '#d97706',
   },
   {
     id: 'claude-3.5-haiku',
@@ -130,13 +135,12 @@ export const AI_MODELS: AIModel[] = [
     providerShort: 'Anthropic',
     tier: 'light',
     multiplier: '0.5x',
-    description: 'Anthropic\'s fastest model — ideal for lightweight tasks requiring speed and efficiency.',
+    description: "Anthropic's fastest model — ideal for lightweight tasks requiring speed and efficiency.",
     tags: ['Fast'],
     bestAt: ['Speed', 'Tasks'],
     speed: 5,
     quality: 3,
     cost: 5,
-    iconColor: '#d97706',
   },
   // xAI
   {
@@ -146,13 +150,12 @@ export const AI_MODELS: AIModel[] = [
     providerShort: 'xAI',
     tier: 'pro',
     multiplier: '1.5x',
-    description: "xAI's flagship model with built-in reasoning and live web search. Great for research-heavy chats.",
+    description: "Built-in reasoning and live web search. Great for research-heavy, well-thought-out answers.",
     tags: ['Reasoning', 'Vision', 'Web Search'],
     bestAt: ['Analysis', 'Coding', 'Writing'],
     speed: 4,
     quality: 4,
     cost: 3,
-    iconColor: '#7c3aed',
   },
   {
     id: 'grok-3-mini',
@@ -161,13 +164,12 @@ export const AI_MODELS: AIModel[] = [
     providerShort: 'xAI',
     tier: 'light',
     multiplier: '0.5x',
-    description: "xAI's smaller reasoning model — fast and affordable for everyday tasks.",
+    description: "Smaller reasoning model — fast and affordable for everyday tasks.",
     tags: ['Fast', 'Reasoning'],
     bestAt: ['Speed', 'Tasks'],
     speed: 5,
     quality: 3,
     cost: 5,
-    iconColor: '#7c3aed',
   },
   // DeepSeek
   {
@@ -177,13 +179,12 @@ export const AI_MODELS: AIModel[] = [
     providerShort: 'DeepSeek',
     tier: 'light',
     multiplier: '0.5x',
-    description: "DeepSeek's powerful open-weight model with exceptional coding and math capabilities.",
+    description: "Powerful open-weight model with exceptional coding and mathematical capabilities.",
     tags: ['Coding', 'Math'],
     bestAt: ['Coding', 'Analysis'],
     speed: 4,
     quality: 4,
     cost: 5,
-    iconColor: '#3b82f6',
   },
   // Perplexity
   {
@@ -193,13 +194,12 @@ export const AI_MODELS: AIModel[] = [
     providerShort: 'Perplexity',
     tier: 'pro',
     multiplier: '0.5x',
-    description: 'Perplexity\'s real-time search-augmented model — ideal for up-to-date information retrieval.',
+    description: 'Real-time search-augmented model — ideal for up-to-date information and research.',
     tags: ['Web Search', 'Real-time'],
     bestAt: ['Research', 'Search', 'Facts'],
     speed: 4,
     quality: 4,
     cost: 4,
-    iconColor: '#06b6d4',
   },
   // Meta
   {
@@ -209,13 +209,12 @@ export const AI_MODELS: AIModel[] = [
     providerShort: 'Meta',
     tier: 'light',
     multiplier: '0.5x',
-    description: "Meta's open-weight model optimized for multilingual understanding and efficient inference.",
+    description: "Open-weight model optimized for multilingual understanding and efficient inference.",
     tags: ['Open Source', 'Multilingual'],
     bestAt: ['Tasks', 'Speed'],
     speed: 5,
     quality: 3,
     cost: 5,
-    iconColor: '#1877f2',
   },
   // Mistral
   {
@@ -225,13 +224,12 @@ export const AI_MODELS: AIModel[] = [
     providerShort: 'Mistral',
     tier: 'light',
     multiplier: '0.5x',
-    description: "Mistral's efficient model with strong multilingual capabilities and a large context window.",
+    description: "Efficient model with strong multilingual capabilities and a large context window.",
     tags: ['Multilingual', 'Open Source'],
     bestAt: ['Tasks', 'Languages'],
     speed: 5,
     quality: 3,
     cost: 5,
-    iconColor: '#f59e0b',
   },
 ];
 

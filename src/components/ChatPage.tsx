@@ -5,7 +5,7 @@ import {
   Heart, SquarePen
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { AI_MODELS, AIModel } from '../lib/models';
+import { AI_MODELS, AIModel, PROVIDER_LOGOS } from '../lib/models';
 import { ModelSelector } from './ModelSelector';
 
 interface Message {
@@ -54,12 +54,24 @@ function MarkdownContent({ content }: { content: string }) {
 }
 
 function ProviderDot({ model }: { model: AIModel }) {
+  const [err, setErr] = React.useState(false);
   if (model.id === 'auto') return <Zap size={14} className="text-purple-400" />;
+  const logoUrl = PROVIDER_LOGOS[model.provider];
+  if (logoUrl && !err) {
+    return (
+      <img
+        src={logoUrl}
+        alt={model.provider}
+        width={14}
+        height={14}
+        referrerPolicy="no-referrer"
+        onError={() => setErr(true)}
+        style={{ width: 14, height: 14, objectFit: 'contain' }}
+      />
+    );
+  }
   return (
-    <div
-      className="w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-bold"
-      style={{ backgroundColor: model.iconColor + '30', color: model.iconColor, border: `1px solid ${model.iconColor}50` }}
-    >
+    <div className="w-3.5 h-3.5 rounded-full bg-zinc-600 text-zinc-300 flex items-center justify-center text-[8px] font-bold">
       {model.providerShort.slice(0, 1)}
     </div>
   );
