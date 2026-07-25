@@ -90,9 +90,24 @@ export function ChatPage({ initialMessage, initialModel, theme, toggleTheme, onN
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [showOptions, setShowOptions] = useState(false);
+  const [deepAnalysis, setDeepAnalysis] = useState(false);
+  const [webSearch, setWebSearch] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const optionsRef = useRef<HTMLDivElement>(null);
   const initialSent = useRef(false);
+
+  // Close options popup when clicking outside
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (optionsRef.current && !optionsRef.current.contains(e.target as Node)) {
+        setShowOptions(false);
+      }
+    }
+    if (showOptions) document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [showOptions]);
 
   const activeChat = chats.find((c) => c.id === activeChatId)!;
 
@@ -427,9 +442,54 @@ export function ChatPage({ initialMessage, initialModel, theme, toggleTheme, onN
                     <Paperclip size={14} />
                   </button>
                   <ModelSelector selectedModel={selectedModel} onSelect={setSelectedModel} compact />
-                  <button className="w-7 h-7 flex items-center justify-center text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 transition-colors rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800">
-                    <Settings2 size={14} />
-                  </button>
+                  <div className="relative" ref={optionsRef}>
+                    <button
+                      onClick={() => setShowOptions((v) => !v)}
+                      className={`w-7 h-7 flex items-center justify-center transition-colors rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 ${showOptions ? 'text-zinc-900 dark:text-white bg-zinc-100 dark:bg-zinc-800' : 'text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200'}`}
+                    >
+                      <Settings2 size={14} />
+                    </button>
+
+                    {showOptions && (
+                      <div className="absolute bottom-10 left-0 z-50 w-64 rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900 shadow-xl p-2">
+                        {/* Deep Analysis */}
+                        <div className="flex items-start gap-3 px-3 py-2.5 rounded-xl hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-semibold text-zinc-800 dark:text-zinc-100">Deep Analysis</p>
+                            <p className="text-[10px] text-zinc-400 mt-0.5">Reasoned, structured output</p>
+                          </div>
+                          <button
+                            onClick={() => setDeepAnalysis((v) => !v)}
+                            className={`relative w-8 h-4.5 rounded-full shrink-0 mt-0.5 transition-colors ${deepAnalysis ? 'bg-zinc-900 dark:bg-white' : 'bg-zinc-200 dark:bg-zinc-700'}`}
+                            style={{ width: 32, height: 18 }}
+                          >
+                            <span
+                              className={`absolute top-0.5 w-3.5 h-3.5 rounded-full transition-transform ${deepAnalysis ? 'bg-white dark:bg-zinc-900 translate-x-[14px]' : 'bg-white dark:bg-zinc-400 translate-x-0.5'}`}
+                              style={{ width: 14, height: 14 }}
+                            />
+                          </button>
+                        </div>
+
+                        {/* Web Search */}
+                        <div className="flex items-start gap-3 px-3 py-2.5 rounded-xl hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-semibold text-zinc-800 dark:text-zinc-100">Web Search</p>
+                            <p className="text-[10px] text-zinc-400 mt-0.5">Fetch real-time information</p>
+                          </div>
+                          <button
+                            onClick={() => setWebSearch((v) => !v)}
+                            className={`relative rounded-full shrink-0 mt-0.5 transition-colors ${webSearch ? 'bg-zinc-900 dark:bg-white' : 'bg-zinc-200 dark:bg-zinc-700'}`}
+                            style={{ width: 32, height: 18 }}
+                          >
+                            <span
+                              className={`absolute top-0.5 w-3.5 h-3.5 rounded-full transition-transform ${webSearch ? 'bg-white dark:bg-zinc-900 translate-x-[14px]' : 'bg-white dark:bg-zinc-400 translate-x-0.5'}`}
+                              style={{ width: 14, height: 14 }}
+                            />
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                   <div className="flex-1" />
                   <button
                     onClick={() => sendMessage(input)}
