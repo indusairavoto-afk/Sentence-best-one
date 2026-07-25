@@ -46,4 +46,4 @@ build = ["npm", "run", "build"]
 [userenv]
 
 [userenv.shared]
-AI_INTEGRATIONS_OPENAI_BASE_URL = "https://api.llmgateway.io/v1"
+AI_INTEGRATIONS_OPENAI_BASE_URL = "https://api.groq.com/openai/v1"

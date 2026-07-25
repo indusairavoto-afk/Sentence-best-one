@@ -195,20 +195,16 @@ const LLM_GATEWAY_BASE_URL =
   process.env.AI_INTEGRATIONS_OPENAI_BASE_URL || "https://integrations.replit.com/v1";
 
 const GATEWAY_MODEL_MAP: Record<string, string> = {
-  auto: "google/gemini-2.5-flash",
-  "gpt-4o": "openai/gpt-4o",
-  "gpt-4o-mini": "openai/gpt-4o-mini",
-  "gemini-2.5-pro": "google/gemini-2.5-pro",
-  "gemini-2.5-flash": "google/gemini-2.5-flash",
-  "gemini-2.0-flash": "google/gemini-2.0-flash",
-  "claude-3.7-sonnet": "anthropic/claude-3.7-sonnet",
-  "claude-3.5-haiku": "anthropic/claude-3.5-haiku",
-  "grok-3": "xai/grok-3",
-  "grok-3-mini": "xai/grok-3-mini",
-  "deepseek-r1": "deepseek/deepseek-r1",
-  "sonar-pro": "perplexity/sonar-pro",
-  "llama-4-maverick": "meta/llama-4-maverick",
-  "mistral-nemo": "mistral/mistral-nemo",
+  // Groq free-tier models
+  auto:                "llama-3.3-70b-versatile",
+  "llama-3.3-70b":     "llama-3.3-70b-versatile",
+  "llama-3.1-70b":     "llama-3.1-70b-versatile",
+  "llama-3.1-8b":      "llama-3.1-8b-instant",
+  "llama-4-scout":     "meta-llama/llama-4-scout-17b-16e-instruct",
+  "llama-4-maverick":  "meta-llama/llama-4-maverick-17b-128e-instruct-fp8",
+  "mixtral-8x7b":      "mixtral-8x7b-32768",
+  "gemma2-9b":         "gemma2-9b-it",
+  "deepseek-r1":       "deepseek-r1-distill-llama-70b",
 };
 
 app.post("/api/chat", async (req, res) => {
