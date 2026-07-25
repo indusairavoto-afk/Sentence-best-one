@@ -51,6 +51,9 @@
     "turndown-plugin-gfm": "^1.0.2",
     "vite": "^6.2.3"
   },
+  "overrides": {
+    "websocket-driver": "0.7.5"
+  },
   "devDependencies": {
     "@firebase/eslint-plugin-security-rules": "^0.0.2",
     "@types/cheerio": "^0.22.35",
