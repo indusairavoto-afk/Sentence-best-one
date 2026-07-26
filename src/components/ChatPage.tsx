@@ -16,6 +16,7 @@ interface Message {
   timestamp: Date;
   imageUrl?: string;
   imageProvider?: string;
+  generatingImage?: boolean;
 }
 
 interface Chat {
@@ -133,9 +134,41 @@ export function ChatPage({ initialMessage, initialModel, theme, toggleTheme, onN
     setChats((prev) => prev.map((c) => (c.id === chatId ? updater(c) : c)));
   }
 
+  // Detect if the user is asking for image generation and extract the image prompt
+  function detectImageIntent(text: string): string | null {
+    const lower = text.toLowerCase();
+    const imageWords = ['image', 'picture', 'photo', 'illustration', 'drawing', 'painting', 'artwork', 'wallpaper', 'poster', 'logo', 'icon', 'banner', 'portrait', 'render', 'visual', 'graphic', 'img', 'pic'];
+    const actionWords = ['generate', 'create', 'make', 'draw', 'design', 'show', 'produce', 'gimme', 'get me', 'want a', 'want an'];
+    const hasImageWord = imageWords.some(w => lower.includes(w));
+    const hasActionWord = actionWords.some(w => lower.includes(w));
+
+    if (hasImageWord && hasActionWord) {
+      // Try to extract subject after "action [a/an] imageNoun [of/about/with] <subject>"
+      const m1 = text.match(/(?:generate|create|make|draw|design|produce|show|get)\s+(?:me\s+)?(?:an?\s+)?(?:image|picture|photo|illustration|drawing|painting|artwork|wallpaper|poster|logo|icon|banner|portrait|render|visual|graphic|img|pic)\s+(?:of\s+|about\s+|showing\s+|with\s+)?(.+)/i);
+      if (m1?.[1]?.trim()) return m1[1].trim();
+      // Try "action <subject> image/picture" — preserve the subject
+      const m2 = text.match(/(?:generate|create|make|draw|design|produce|show)\s+(.+?)\s+(?:image|picture|photo|illustration|artwork|wallpaper|poster|logo|icon|banner|portrait|render)/i);
+      if (m2?.[1]?.trim()) return `${m2[1].trim()} ${text.match(/image|picture|photo|illustration|artwork|wallpaper|poster|logo|icon|banner|portrait|render/i)?.[0] ?? ''}`.trim();
+      return text; // fallback: use full text as prompt
+    }
+
+    // Catch vague requests: "just generate it", "generate anything", "generate something"
+    if (hasActionWord && /\b(?:it|anything|something|one|some)\b/.test(lower)) {
+      return 'a beautiful abstract artwork, vibrant colors, high quality';
+    }
+
+    return null;
+  }
+
   async function sendMessage(text: string) {
     const trimmed = text.trim();
     if (!trimmed || isLoading) return;
+
+    // Auto-detect image generation intent and route directly to image generation
+    const imagePrompt = detectImageIntent(trimmed);
+    if (imagePrompt) {
+      return sendImageMessage(imagePrompt);
+    }
 
     const userMsg: Message = {
       id: crypto.randomUUID(),
@@ -168,7 +201,7 @@ export function ChatPage({ initialMessage, initialModel, theme, toggleTheme, onN
       messages: [...c.messages, assistantMsg],
     }));
 
-    const SYSTEM_PROMPT = `You are the AI assistant for Seamless Bridge, an all-in-one AI platform that gives users access to multiple leading AI models (including Meta Llama, Mistral, Gemma, and DeepSeek) in a private, secure workspace. You help users brainstorm ideas, refine responses, write, code, analyze, and more. Always be helpful, concise, and friendly.`;
+    const SYSTEM_PROMPT = `You are the AI assistant for Seamless Bridge, an all-in-one AI platform that gives users access to multiple leading AI models in a private, secure workspace. This platform CAN generate images directly — users just need to switch to image mode (the image icon in the toolbar) or ask you to generate one. You help users brainstorm ideas, refine responses, write, code, analyze, and more. Always be helpful, concise, and friendly.`;
 
     try {
       const history = currentMessages.map((m) => ({ role: m.role, content: m.content }));
@@ -272,6 +305,7 @@ export function ChatPage({ initialMessage, initialModel, theme, toggleTheme, onN
         content: '',
         model: selectedModel,
         timestamp: new Date(),
+        generatingImage: true,
       }],
     }));
 
@@ -290,7 +324,7 @@ export function ChatPage({ initialMessage, initialModel, theme, toggleTheme, onN
                 ...c,
                 messages: c.messages.map((m) =>
                   m.id === assistantMsgId
-                    ? { ...m, imageUrl: data.url, imageProvider: data.provider, content: '' }
+                    ? { ...m, imageUrl: data.url, imageProvider: data.provider, content: '', generatingImage: false }
                     : m
                 ),
               }
@@ -305,7 +339,7 @@ export function ChatPage({ initialMessage, initialModel, theme, toggleTheme, onN
                 ...c,
                 messages: c.messages.map((m) =>
                   m.id === assistantMsgId
-                    ? { ...m, content: `⚠️ Image generation failed: ${err.message}` }
+                    ? { ...m, content: `⚠️ Image generation failed: ${err.message}`, generatingImage: false }
                     : m
                 ),
               }
@@ -496,10 +530,54 @@ export function ChatPage({ initialMessage, initialModel, theme, toggleTheme, onN
                           </div>
                         ) : msg.content ? (
                           <MarkdownContent content={msg.content} />
+                        ) : msg.generatingImage ? (
+                          <div className="flex flex-col gap-3">
+                            <div
+                              className="relative w-full rounded-xl overflow-hidden border border-zinc-200 dark:border-white/10"
+                              style={{ height: 280 }}
+                            >
+                              {/* Shimmer base */}
+                              <div className="absolute inset-0 bg-zinc-100 dark:bg-zinc-800" />
+                              {/* Animated shimmer sweep */}
+                              <div
+                                className="absolute inset-0"
+                                style={{
+                                  background: 'linear-gradient(105deg, transparent 40%, rgba(255,255,255,0.15) 50%, transparent 60%)',
+                                  backgroundSize: '200% 100%',
+                                  animation: 'shimmer 1.4s infinite linear',
+                                }}
+                              />
+                              {/* Pulsing center icon */}
+                              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+                                <div className="relative">
+                                  <div className="w-12 h-12 rounded-2xl bg-violet-500/20 border border-violet-500/30 flex items-center justify-center animate-pulse">
+                                    <ImageIcon size={22} className="text-violet-400" />
+                                  </div>
+                                  <div className="absolute -inset-2 rounded-3xl border border-violet-500/20 animate-ping" style={{ animationDuration: '1.5s' }} />
+                                </div>
+                                <div className="flex flex-col items-center gap-1">
+                                  <span className="text-xs font-medium text-zinc-400">Generating image…</span>
+                                  <div className="flex gap-1">
+                                    {[0, 1, 2].map(i => (
+                                      <div
+                                        key={i}
+                                        className="w-1.5 h-1.5 rounded-full bg-violet-400"
+                                        style={{ animation: `bounce 0.9s ${i * 0.15}s infinite` }}
+                                      />
+                                    ))}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                            <style>{`
+                              @keyframes shimmer { from { background-position: -200% 0 } to { background-position: 200% 0 } }
+                              @keyframes bounce { 0%,100% { transform: translateY(0); opacity:0.5 } 50% { transform: translateY(-4px); opacity:1 } }
+                            `}</style>
+                          </div>
                         ) : (
                           <div className="flex items-center gap-2 py-2">
                             <Loader2 size={14} className="animate-spin text-zinc-400" />
-                            <span className="text-sm text-zinc-400">{imageMode ? 'Generating image…' : 'Thinking…'}</span>
+                            <span className="text-sm text-zinc-400">Thinking…</span>
                           </div>
                         )}
                       </div>
