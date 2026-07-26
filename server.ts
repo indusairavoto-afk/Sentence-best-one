@@ -197,8 +197,10 @@ const TOGETHER_BASE_URL =
   process.env.TOGETHER_AI_BASE_URL || "https://api.together.xyz/v1";
 const OPENROUTER_BASE_URL =
   process.env.OPENROUTER_BASE_URL || "https://openrouter.ai/api/v1";
+const OPENAI_BASE_URL =
+  process.env.OPENAI_BASE_URL || "https://api.openai.com/v1";
 
-type ProviderName = "groq" | "together" | "openrouter";
+type ProviderName = "groq" | "together" | "openrouter" | "openai";
 interface ModelRoute { model: string; provider: ProviderName; }
 
 const GATEWAY_MODEL_MAP: Record<string, ModelRoute> = {
@@ -215,12 +217,15 @@ const GATEWAY_MODEL_MAP: Record<string, ModelRoute> = {
   "llama-3.3-70b-together": { model: "meta-llama/Llama-3.3-70B-Instruct-Turbo-Free",        provider: "together" },
   "llama-3.1-8b-together":  { model: "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo-Free",    provider: "together" },
   "deepseek-r1-together":   { model: "deepseek-ai/DeepSeek-R1-Distill-Llama-70B-free",      provider: "together" },
+  // ── OpenAI ──────────────────────────────────────────────────────────────────
+  "gpt-4o-mini":         { model: "gpt-4o-mini",                                             provider: "openai" },
+  "gpt-4o":              { model: "gpt-4o",                                                  provider: "openai" },
   // ── OpenRouter free-tier ────────────────────────────────────────────────────
-  "gemini-flash-or":     { model: "google/gemini-2.0-flash-exp:free",                        provider: "openrouter" },
-  "deepseek-r1-or":      { model: "deepseek/deepseek-r1:free",                               provider: "openrouter" },
-  "qwen3-235b":          { model: "qwen/qwen3-235b-a22b:free",                               provider: "openrouter" },
-  "phi4-reasoning":      { model: "microsoft/phi-4-reasoning:free",                          provider: "openrouter" },
-  "mistral-7b-or":       { model: "mistralai/mistral-7b-instruct:free",                      provider: "openrouter" },
+  "gemini-flash-or":     { model: "google/gemma-4-31b-it:free",                              provider: "openrouter" },
+  "deepseek-r1-or":      { model: "nvidia/nemotron-3-super-120b-a12b:free",                  provider: "openrouter" },
+  "qwen3-235b":          { model: "nvidia/nemotron-3-ultra-550b-a55b:free",                   provider: "openrouter" },
+  "phi4-reasoning":      { model: "openai/gpt-oss-20b:free",                                 provider: "openrouter" },
+  "mistral-7b-or":       { model: "nvidia/nemotron-3-nano-30b-a3b:free",                     provider: "openrouter" },
 };
 
 function getProviderConfig(provider: ProviderName): { baseUrl: string; apiKey: string; extraHeaders?: Record<string,string> } {
@@ -240,6 +245,12 @@ function getProviderConfig(provider: ProviderName): { baseUrl: string; apiKey: s
       },
     };
   }
+  if (provider === "openai") {
+    return {
+      baseUrl: OPENAI_BASE_URL,
+      apiKey: process.env.OPENAI_API_KEY || "",
+    };
+  }
   // groq (default)
   return {
     baseUrl: GROQ_BASE_URL,
@@ -254,7 +265,19 @@ app.post("/api/chat", async (req, res) => {
       model: string;
     };
 
-    const route: ModelRoute = GATEWAY_MODEL_MAP[model] ?? { model: "llama-3.3-70b-versatile", provider: "groq" };
+    let route: ModelRoute = GATEWAY_MODEL_MAP[model] ?? { model: "llama-3.3-70b-versatile", provider: "groq" as ProviderName };
+
+    // For "auto", pick the best available provider based on configured keys
+    if (model === "auto") {
+      if (process.env.OPENROUTER_API_KEY) {
+        route = { model: "nvidia/nemotron-3-super-120b-a12b:free", provider: "openrouter" };
+      } else if (process.env.OPENAI_API_KEY) {
+        route = { model: "gpt-4o-mini", provider: "openai" };
+      } else if (process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
+        route = { model: "llama-3.3-70b-versatile", provider: "groq" };
+      }
+    }
+
     const { baseUrl, apiKey, extraHeaders } = getProviderConfig(route.provider);
 
     if (!apiKey) {

@@ -180,6 +180,34 @@ export const AI_MODELS: AIModel[] = [
     cost: 5,
   },
 
+  // ── OpenAI ─────────────────────────────────────────────────────────────────
+  {
+    id: 'gpt-4o-mini',
+    name: 'GPT-4o mini',
+    provider: 'OpenAI',
+    providerShort: 'OpenAI',
+    tier: 'light',
+    description: "OpenAI's fast and affordable GPT-4o mini — great for everyday tasks and chat.",
+    tags: ['Fast', 'Chat'],
+    bestAt: ['Chat', 'Speed', 'Tasks'],
+    speed: 5,
+    quality: 4,
+    cost: 4,
+  },
+  {
+    id: 'gpt-4o',
+    name: 'GPT-4o',
+    provider: 'OpenAI',
+    providerShort: 'OpenAI',
+    tier: 'pro',
+    description: "OpenAI's flagship multimodal model — top-tier reasoning, coding, and analysis.",
+    tags: ['Multimodal', 'Coding'],
+    bestAt: ['Reasoning', 'Coding', 'Analysis'],
+    speed: 4,
+    quality: 5,
+    cost: 3,
+  },
+
   // ── OpenRouter free-tier ────────────────────────────────────────────────────
   {
     id: 'gemini-flash-or',
