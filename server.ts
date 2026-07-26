@@ -191,21 +191,61 @@ app.get("/api/health", (req, res) => {
 });
 
 // ── AI Chat endpoint ──────────────────────────────────────────────────────────
-const LLM_GATEWAY_BASE_URL =
-  process.env.AI_INTEGRATIONS_OPENAI_BASE_URL || "https://integrations.replit.com/v1";
+const GROQ_BASE_URL =
+  process.env.AI_INTEGRATIONS_OPENAI_BASE_URL || "https://api.groq.com/openai/v1";
+const TOGETHER_BASE_URL =
+  process.env.TOGETHER_AI_BASE_URL || "https://api.together.xyz/v1";
+const OPENROUTER_BASE_URL =
+  process.env.OPENROUTER_BASE_URL || "https://openrouter.ai/api/v1";
 
-const GATEWAY_MODEL_MAP: Record<string, string> = {
-  // Groq free-tier models
-  auto:                "llama-3.3-70b-versatile",
-  "llama-3.3-70b":     "llama-3.3-70b-versatile",
-  "llama-3.1-70b":     "llama-3.1-70b-versatile",
-  "llama-3.1-8b":      "llama-3.1-8b-instant",
-  "llama-4-scout":     "meta-llama/llama-4-scout-17b-16e-instruct",
-  "llama-4-maverick":  "meta-llama/llama-4-maverick-17b-128e-instruct-fp8",
-  "mixtral-8x7b":      "mixtral-8x7b-32768",
-  "gemma2-9b":         "gemma2-9b-it",
-  "deepseek-r1":       "deepseek-r1-distill-llama-70b",
+type ProviderName = "groq" | "together" | "openrouter";
+interface ModelRoute { model: string; provider: ProviderName; }
+
+const GATEWAY_MODEL_MAP: Record<string, ModelRoute> = {
+  // ── Groq free-tier ──────────────────────────────────────────────────────────
+  auto:                  { model: "llama-3.3-70b-versatile",                                provider: "groq" },
+  "llama-3.3-70b":       { model: "llama-3.3-70b-versatile",                                provider: "groq" },
+  "llama-3.1-8b":        { model: "llama-3.1-8b-instant",                                   provider: "groq" },
+  "llama-4-scout":       { model: "meta-llama/llama-4-scout-17b-16e-instruct",               provider: "groq" },
+  "llama-4-maverick":    { model: "meta-llama/llama-4-maverick-17b-128e-instruct-fp8",       provider: "groq" },
+  "mixtral-8x7b":        { model: "mixtral-8x7b-32768",                                      provider: "groq" },
+  "gemma2-9b":           { model: "gemma2-9b-it",                                            provider: "groq" },
+  "deepseek-r1-groq":    { model: "deepseek-r1-distill-llama-70b",                           provider: "groq" },
+  // ── Together AI free-tier ───────────────────────────────────────────────────
+  "llama-3.3-70b-together": { model: "meta-llama/Llama-3.3-70B-Instruct-Turbo-Free",        provider: "together" },
+  "llama-3.1-8b-together":  { model: "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo-Free",    provider: "together" },
+  "deepseek-r1-together":   { model: "deepseek-ai/DeepSeek-R1-Distill-Llama-70B-free",      provider: "together" },
+  // ── OpenRouter free-tier ────────────────────────────────────────────────────
+  "gemini-flash-or":     { model: "google/gemini-2.0-flash-exp:free",                        provider: "openrouter" },
+  "deepseek-r1-or":      { model: "deepseek/deepseek-r1:free",                               provider: "openrouter" },
+  "qwen3-235b":          { model: "qwen/qwen3-235b-a22b:free",                               provider: "openrouter" },
+  "phi4-reasoning":      { model: "microsoft/phi-4-reasoning:free",                          provider: "openrouter" },
+  "mistral-7b-or":       { model: "mistralai/mistral-7b-instruct:free",                      provider: "openrouter" },
 };
+
+function getProviderConfig(provider: ProviderName): { baseUrl: string; apiKey: string; extraHeaders?: Record<string,string> } {
+  if (provider === "together") {
+    return {
+      baseUrl: TOGETHER_BASE_URL,
+      apiKey: process.env.TOGETHER_AI_API_KEY || "",
+    };
+  }
+  if (provider === "openrouter") {
+    return {
+      baseUrl: OPENROUTER_BASE_URL,
+      apiKey: process.env.OPENROUTER_API_KEY || "",
+      extraHeaders: {
+        "HTTP-Referer": "https://seamlessbridge.app",
+        "X-Title": "Seamless Bridge",
+      },
+    };
+  }
+  // groq (default)
+  return {
+    baseUrl: GROQ_BASE_URL,
+    apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY || "",
+  };
+}
 
 app.post("/api/chat", async (req, res) => {
   try {
@@ -214,20 +254,22 @@ app.post("/api/chat", async (req, res) => {
       model: string;
     };
 
-    const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
+    const route = GATEWAY_MODEL_MAP[model] ?? { model: "llama-3.3-70b-versatile", provider: "groq" as ProviderName };
+    const { baseUrl, apiKey, extraHeaders } = getProviderConfig(route.provider);
+
     if (!apiKey) {
-      return res.status(500).json({ error: "AI_INTEGRATIONS_OPENAI_API_KEY not configured. Add it in Replit Secrets." });
+      return res.status(500).json({ error: `API key for provider "${route.provider}" is not configured.` });
     }
 
-    const gatewayModel = GATEWAY_MODEL_MAP[model] ?? "gpt-4o-mini";
-    const gatewayResponse = await fetch(`${LLM_GATEWAY_BASE_URL}/chat/completions`, {
+    const gatewayResponse = await fetch(`${baseUrl}/chat/completions`, {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${apiKey}`,
         "Content-Type": "application/json",
+        ...(extraHeaders || {}),
       },
       body: JSON.stringify({
-        model: gatewayModel,
+        model: route.model,
         messages,
         stream: true,
       }),
