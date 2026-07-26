@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import {
   Plus, Search, PanelLeft, Send, Paperclip, Settings2,
   Share2, MoreHorizontal, Loader2, Sun, Moon, ChevronDown, Zap,
-  Heart, SquarePen
+  Heart, SquarePen, ImageIcon, Download
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { AI_MODELS, AIModel, PROVIDER_LOGOS } from '../lib/models';
@@ -14,6 +14,8 @@ interface Message {
   content: string;
   model?: AIModel;
   timestamp: Date;
+  imageUrl?: string;
+  imageProvider?: string;
 }
 
 interface Chat {
@@ -93,6 +95,7 @@ export function ChatPage({ initialMessage, initialModel, theme, toggleTheme, onN
   const [showOptions, setShowOptions] = useState(false);
   const [deepAnalysis, setDeepAnalysis] = useState(false);
   const [webSearch, setWebSearch] = useState(false);
+  const [imageMode, setImageMode] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const optionsRef = useRef<HTMLDivElement>(null);
@@ -229,6 +232,80 @@ export function ChatPage({ initialMessage, initialModel, theme, toggleTheme, onN
                 messages: c.messages.map((m) =>
                   m.id === assistantMsgId
                     ? { ...m, content: '⚠️ Sorry, there was an error processing your request. Please check your API key configuration.' }
+                    : m
+                ),
+              }
+            : c
+        )
+      );
+    } finally {
+      setIsLoading(false);
+      setTimeout(() => inputRef.current?.focus(), 100);
+    }
+  }
+
+  async function sendImageMessage(text: string) {
+    const trimmed = text.trim();
+    if (!trimmed || isLoading) return;
+
+    const userMsg: Message = {
+      id: crypto.randomUUID(),
+      role: 'user',
+      content: `🎨 ${trimmed}`,
+      timestamp: new Date(),
+    };
+
+    updateChat(activeChatId, (c) => ({
+      ...c,
+      title: c.messages.length === 0 ? `Image: ${trimmed.slice(0, 35)}…` : c.title,
+      messages: [...c.messages, userMsg],
+    }));
+    setInput('');
+    setIsLoading(true);
+
+    const assistantMsgId = crypto.randomUUID();
+    updateChat(activeChatId, (c) => ({
+      ...c,
+      messages: [...c.messages, {
+        id: assistantMsgId,
+        role: 'assistant' as const,
+        content: '',
+        model: selectedModel,
+        timestamp: new Date(),
+      }],
+    }));
+
+    try {
+      const response = await fetch('/api/generate-image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: trimmed }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Image generation failed');
+      setChats((prev) =>
+        prev.map((c) =>
+          c.id === activeChatId
+            ? {
+                ...c,
+                messages: c.messages.map((m) =>
+                  m.id === assistantMsgId
+                    ? { ...m, imageUrl: data.url, imageProvider: data.provider, content: '' }
+                    : m
+                ),
+              }
+            : c
+        )
+      );
+    } catch (err: any) {
+      setChats((prev) =>
+        prev.map((c) =>
+          c.id === activeChatId
+            ? {
+                ...c,
+                messages: c.messages.map((m) =>
+                  m.id === assistantMsgId
+                    ? { ...m, content: `⚠️ Image generation failed: ${err.message}` }
                     : m
                 ),
               }
@@ -396,12 +473,33 @@ export function ChatPage({ initialMessage, initialModel, theme, toggleTheme, onN
                             <span className="text-[10px] font-semibold text-zinc-400 uppercase tracking-widest">{msg.model.name}</span>
                           </div>
                         )}
-                        {msg.content ? (
+                        {msg.imageUrl ? (
+                          <div className="flex flex-col gap-2">
+                            <img
+                              src={msg.imageUrl}
+                              alt="Generated image"
+                              className="rounded-xl max-w-full border border-zinc-200 dark:border-white/10"
+                              style={{ maxHeight: 480, objectFit: 'contain' }}
+                            />
+                            <div className="flex items-center justify-between">
+                              <span className="text-[10px] text-zinc-400">{msg.imageProvider}</span>
+                              <a
+                                href={msg.imageUrl}
+                                download="generated-image.png"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-1 text-[10px] text-zinc-400 hover:text-zinc-200 transition-colors"
+                              >
+                                <Download size={10} /> Save
+                              </a>
+                            </div>
+                          </div>
+                        ) : msg.content ? (
                           <MarkdownContent content={msg.content} />
                         ) : (
                           <div className="flex items-center gap-2 py-2">
                             <Loader2 size={14} className="animate-spin text-zinc-400" />
-                            <span className="text-sm text-zinc-400">Thinking…</span>
+                            <span className="text-sm text-zinc-400">{imageMode ? 'Generating image…' : 'Thinking…'}</span>
                           </div>
                         )}
                       </div>
@@ -468,7 +566,7 @@ export function ChatPage({ initialMessage, initialModel, theme, toggleTheme, onN
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  placeholder="Ask me anything..."
+                  placeholder={imageMode ? 'Describe an image to generate…' : 'Ask me anything...'}
                   rows={1}
                   className="w-full px-4 pt-4 pb-2 bg-transparent text-sm text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 outline-none resize-none leading-relaxed"
                   style={{ minHeight: 52, maxHeight: 200 }}
@@ -484,6 +582,13 @@ export function ChatPage({ initialMessage, initialModel, theme, toggleTheme, onN
                   </button>
                   <ModelSelector selectedModel={selectedModel} onSelect={setSelectedModel} compact />
                   <button
+                    onClick={() => { setImageMode((v) => !v); setShowOptions(false); }}
+                    title="Generate Image"
+                    className={`w-7 h-7 flex items-center justify-center transition-colors rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 ${imageMode ? 'text-violet-500 bg-violet-500/10' : 'text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200'}`}
+                  >
+                    <ImageIcon size={14} />
+                  </button>
+                  <button
                     onClick={() => setShowOptions((v) => !v)}
                     className={`w-7 h-7 flex items-center justify-center transition-colors rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 ${showOptions ? 'text-zinc-900 dark:text-white bg-zinc-100 dark:bg-zinc-800' : 'text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200'}`}
                   >
@@ -491,12 +596,14 @@ export function ChatPage({ initialMessage, initialModel, theme, toggleTheme, onN
                   </button>
                   <div className="flex-1" />
                   <button
-                    onClick={() => sendMessage(input)}
+                    onClick={() => imageMode ? sendImageMessage(input) : sendMessage(input)}
                     disabled={!input.trim() || isLoading}
-                    className="w-8 h-8 rounded-full bg-zinc-900 dark:bg-white flex items-center justify-center text-white dark:text-zinc-900 transition-all hover:scale-105 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100 shrink-0"
+                    className={`w-8 h-8 rounded-full flex items-center justify-center transition-all hover:scale-105 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100 shrink-0 ${imageMode ? 'bg-violet-600 text-white' : 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-900'}`}
                   >
                     {isLoading ? (
                       <Loader2 size={14} className="animate-spin" />
+                    ) : imageMode ? (
+                      <ImageIcon size={14} />
                     ) : (
                       <Send size={14} />
                     )}

@@ -254,7 +254,7 @@ app.post("/api/chat", async (req, res) => {
       model: string;
     };
 
-    const route = GATEWAY_MODEL_MAP[model] ?? { model: "llama-3.3-70b-versatile", provider: "groq" as ProviderName };
+    const route: ModelRoute = GATEWAY_MODEL_MAP[model] ?? { model: "llama-3.3-70b-versatile", provider: "groq" };
     const { baseUrl, apiKey, extraHeaders } = getProviderConfig(route.provider);
 
     if (!apiKey) {
@@ -326,6 +326,54 @@ app.post("/api/chat", async (req, res) => {
       res.write(`data: ${JSON.stringify({ error: err.message })}\n\n`);
       res.end();
     }
+  }
+});
+
+// ── Image generation endpoint ─────────────────────────────────────────────────
+app.post("/api/generate-image", async (req, res) => {
+  try {
+    const { prompt } = req.body as { prompt: string };
+    if (!prompt) return res.status(400).json({ error: "Prompt is required" });
+
+    // Primary: Together AI FLUX.1-schnell-Free
+    const togetherKey = process.env.TOGETHER_AI_API_KEY;
+    if (togetherKey) {
+      try {
+        const response = await fetch(`${TOGETHER_BASE_URL}/images/generations`, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${togetherKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "black-forest-labs/FLUX.1-schnell-Free",
+            prompt,
+            n: 1,
+            width: 1024,
+            height: 768,
+            steps: 4,
+          }),
+        });
+        if (response.ok) {
+          const data = await response.json();
+          const url = data.data?.[0]?.url;
+          if (url) return res.json({ url, provider: "FLUX · Together AI" });
+        } else {
+          const errText = await response.text();
+          console.error("Together AI image error:", errText.slice(0, 200));
+        }
+      } catch (e: any) {
+        console.error("Together AI image generation failed:", e.message);
+      }
+    }
+
+    // Fallback: Pollinations.ai (no key needed, always free)
+    const encodedPrompt = encodeURIComponent(prompt);
+    const pollinationsUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1024&height=768&nologo=true&enhance=true&seed=${Date.now()}`;
+    return res.json({ url: pollinationsUrl, provider: "Pollinations AI" });
+  } catch (err: any) {
+    console.error("Image generation error:", err);
+    res.status(500).json({ error: err.message || "Image generation failed" });
   }
 });
 
