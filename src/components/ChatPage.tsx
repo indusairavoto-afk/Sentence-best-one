@@ -503,9 +503,6 @@ export function ChatPage({ initialMessage, initialModel, theme, toggleTheme, onN
                   </button>
                 </div>
               </div>
-              <p className="text-center text-[10px] text-zinc-400 mt-2">
-                Powered by Groq · Free open-source models
-              </p>
             </div>
           </div>
         </div>
