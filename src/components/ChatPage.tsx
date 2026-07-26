@@ -201,7 +201,7 @@ export function ChatPage({ initialMessage, initialModel, theme, toggleTheme, onN
       messages: [...c.messages, assistantMsg],
     }));
 
-    const SYSTEM_PROMPT = `You are the AI assistant for Seamless Bridge, an all-in-one AI platform that gives users access to multiple leading AI models in a private, secure workspace. This platform CAN generate images directly — users just need to switch to image mode (the image icon in the toolbar) or ask you to generate one. You help users brainstorm ideas, refine responses, write, code, analyze, and more. Always be helpful, concise, and friendly.`;
+    const SYSTEM_PROMPT = `You are the AI assistant for Seamless Bridge, an all-in-one AI platform. You are a text-only assistant — do NOT attempt to generate, describe, or fake image generation. If a user asks for an image, tell them to click the image icon (🖼) in the toolbar to switch to image mode, where the platform will generate a real image. Never produce fake image URLs or placeholder image descriptions. Help users with writing, coding, analysis, brainstorming, and conversation. Be helpful, concise, and friendly.`;
 
     try {
       const history = currentMessages.map((m) => ({ role: m.role, content: m.content }));
@@ -508,26 +508,7 @@ export function ChatPage({ initialMessage, initialModel, theme, toggleTheme, onN
                           </div>
                         )}
                         {msg.imageUrl ? (
-                          <div className="flex flex-col gap-2">
-                            <img
-                              src={msg.imageUrl}
-                              alt="Generated image"
-                              className="rounded-xl max-w-full border border-zinc-200 dark:border-white/10"
-                              style={{ maxHeight: 480, objectFit: 'contain' }}
-                            />
-                            <div className="flex items-center justify-between">
-                              <span className="text-[10px] text-zinc-400">{msg.imageProvider}</span>
-                              <a
-                                href={msg.imageUrl}
-                                download="generated-image.png"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="flex items-center gap-1 text-[10px] text-zinc-400 hover:text-zinc-200 transition-colors"
-                              >
-                                <Download size={10} /> Save
-                              </a>
-                            </div>
-                          </div>
+                          <ImagePreview url={msg.imageUrl} provider={msg.imageProvider} />
                         ) : msg.content ? (
                           <MarkdownContent content={msg.content} />
                         ) : msg.generatingImage ? (

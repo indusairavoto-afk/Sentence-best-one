@@ -352,6 +352,23 @@ app.post("/api/chat", async (req, res) => {
   }
 });
 
+// ── Image download proxy (fixes cross-origin download for Pollinations etc.) ──
+app.get("/api/download-image", async (req, res) => {
+  try {
+    const url = req.query.url as string;
+    if (!url || !/^https?:\/\//.test(url)) return res.status(400).json({ error: "Invalid URL" });
+    const response = await fetch(url);
+    if (!response.ok) return res.status(502).json({ error: "Failed to fetch image" });
+    const contentType = response.headers.get("content-type") || "image/png";
+    res.setHeader("Content-Type", contentType);
+    res.setHeader("Content-Disposition", `attachment; filename="generated-image.png"`);
+    const buffer = await response.arrayBuffer();
+    res.send(Buffer.from(buffer));
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ── Image generation endpoint ─────────────────────────────────────────────────
 app.post("/api/generate-image", async (req, res) => {
   try {
