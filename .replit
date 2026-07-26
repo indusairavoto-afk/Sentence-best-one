@@ -47,3 +47,5 @@ build = ["npm", "run", "build"]
 
 [userenv.shared]
 AI_INTEGRATIONS_OPENAI_BASE_URL = "https://api.groq.com/openai/v1"
+OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
+TOGETHER_AI_BASE_URL = "https://api.together.xyz/v1"
