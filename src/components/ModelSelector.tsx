@@ -9,7 +9,7 @@ interface ModelSelectorProps {
   compact?: boolean;
 }
 
-type TierFilter = 'all' | 'light' | 'pro' | 'max';
+type TierFilter = 'all' | 'free' | 'light' | 'pro' | 'max';
 
 // Real logo per model — falls back to a simple circle if img errors
 function ModelLogo({ model, size = 18 }: { model: AIModel; size?: number }) {
@@ -141,17 +141,19 @@ function Dropdown({
 
         {/* Tier filters */}
         <div className="flex items-center gap-0.5 px-2 py-1.5 border-b border-zinc-800/60">
-          {(['all', 'light', 'pro', 'max'] as TierFilter[]).map((t) => (
+          {(['all', 'free', 'light', 'pro', 'max'] as TierFilter[]).map((t) => (
             <button
               key={t}
               onClick={() => setTierFilter(t)}
               className={`px-2.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide transition-all ${
                 tierFilter === t
-                  ? 'bg-white text-zinc-900'
+                  ? t === 'free'
+                    ? 'bg-emerald-500 text-white'
+                    : 'bg-white text-zinc-900'
                   : 'text-zinc-500 hover:text-zinc-300'
               }`}
             >
-              {t === 'all' ? 'All' : TIER_LABELS[t]}
+              {t === 'all' ? 'All' : t === 'free' ? 'Free' : TIER_LABELS[t]}
             </button>
           ))}
         </div>
@@ -309,7 +311,7 @@ export function ModelSelector({ selectedModel, onSelect, compact = false }: Mode
     const matchSearch =
       m.name.toLowerCase().includes(search.toLowerCase()) ||
       m.provider.toLowerCase().includes(search.toLowerCase());
-    const matchTier = tierFilter === 'all' || m.tier === tierFilter;
+    const matchTier = tierFilter === 'all' || (tierFilter === 'free' ? m.tags?.includes('Free') : m.tier === tierFilter);
     return matchSearch && matchTier;
   });
 
